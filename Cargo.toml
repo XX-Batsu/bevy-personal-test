@@ -4,6 +4,7 @@ members = [
     "engine/deterministic",
     "engine/bridge_types",
     "engine/state_hash",
+    "engine/crypto",
 ]
 
 [workspace.package]
@@ -19,7 +20,7 @@ softfloat = "=1.0.0"
 # 保留於 workspace 層級供未來 crate 使用
 # （engine/deterministic 自行實作 PCG，不直接依賴）
 rand_pcg = "0.3"
-rand_core = "0.6"
+rand_core = { version = "0.6", features = ["getrandom"] }
 
 # ── 雜湊 ──
 blake3 = "1"
@@ -27,6 +28,15 @@ blake3 = "1"
 # ── 序列化 ──
 bincode = "1"
 serde = { version = "1", features = ["derive"] }
+
+# ── 加密 ──
+x25519-dalek = { version = "2", features = ["static_secrets"] }
+hkdf = "0.12"
+sha2 = "0.10"
+aes-gcm = "0.10"
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+getrandom = { version = "0.2", features = ["js"] }
+zeroize = { version = "1", features = ["derive"] }
 
 # ── 日誌 ──
 tracing = "0.1"
