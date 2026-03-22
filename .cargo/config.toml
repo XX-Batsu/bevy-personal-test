@@ -1,0 +1,4 @@
+# WASM 目標需要指定 getrandom 後端
+# getrandom v0.3+ 不再自動偵測 wasm32-unknown-unknown，需要明確設定
+[target.wasm32-unknown-unknown]
+rustflags = ['--cfg', 'getrandom_backend="wasm_js"']

@@ -1,0 +1,16 @@
+[package]
+name = "vm_runtime"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rhai = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true }
+bridge_types = { path = "../bridge_types" }
+deterministic = { path = "../deterministic" }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+web-sys = { version = "0.3", features = ["Performance", "Window"] }
+# getrandom v0.3（ahash 透過 rhai 間接引入）在 wasm32 目標需啟用 wasm_js feature
+getrandom = { version = "0.3", features = ["wasm_js"] }

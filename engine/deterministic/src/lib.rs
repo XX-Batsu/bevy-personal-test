@@ -19,6 +19,7 @@
 //! let new_pos = pos + vel.scale(dt);
 //! ```
 
+pub mod clock;
 pub mod deterministic_rng;
 pub mod simulation_clock;
 pub mod soft_float;
@@ -27,6 +28,9 @@ pub mod soft_vec;
 // ── 便利 re-exports ──
 // 下游 crate 可直接 `use deterministic::SoftF32;` 而不需指定子模組。
 
+pub use clock::Clock;
+#[cfg(not(target_arch = "wasm32"))]
+pub use clock::NativeClock;
 pub use deterministic_rng::DeterministicRng;
 pub use simulation_clock::SimulationClock;
 pub use soft_float::SoftF32;

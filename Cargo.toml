@@ -5,6 +5,7 @@ members = [
     "engine/bridge_types",
     "engine/state_hash",
     "engine/crypto",
+    "engine/vm_runtime",
     "build/bytecode_compiler",
 ]
 
