@@ -1,0 +1,11 @@
+[package]
+name = "bridge_types"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+deterministic = { path = "../deterministic" }
+serde = { workspace = true, features = ["derive"] }
+
+[dev-dependencies]
+bincode = { workspace = true }
