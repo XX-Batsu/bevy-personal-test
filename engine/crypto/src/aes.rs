@@ -74,6 +74,76 @@ pub fn decrypt(
         .map_err(|_| CryptoError::AuthTagMismatch)
 }
 
+// ── 欄位分離 API（供 bytecode file format 使用）─────────────
+
+/// AES-256-GCM 加密結果（拆分欄位，供 bytecode file format 使用）
+///
+/// 與 `aes_encrypt` 回傳的 `Vec<u8>`（nonce || ciphertext || tag 拼接）不同，
+/// 此結構將三者分離，讓呼叫端可獨立控制各欄位的寫入位置。
+#[derive(Debug, Clone, PartialEq)]
+pub struct AesEncryptedParts {
+    /// 12-byte nonce（由 OsRng 隨機生成，build tool 層非 game logic）
+    pub nonce: [u8; 12],
+    /// 密文（不含 tag）
+    pub ciphertext: Vec<u8>,
+    /// 16-byte authentication tag
+    pub tag: [u8; 16],
+}
+
+/// 加密並回傳各部件（nonce、ciphertext、tag 分離）
+///
+/// 與 `aes_encrypt` 不同之處：回傳結構化的 `AesEncryptedParts`
+/// 而非 `nonce || ciphertext || tag` 拼接的 `Vec<u8>`，
+/// 讓 bytecode file format 可將各欄位寫入指定的 offset。
+///
+/// Nonce 由 `Aes256Gcm::generate_nonce(&mut OsRng)` 隨機生成
+/// （build tool 層，不受 Determinism Rules 約束）。
+/// WASM 環境下透過 `getrandom` 的 `js` feature 取得隨機數。
+pub fn aes_encrypt_parts(
+    key: &[u8; 32],
+    plaintext: &[u8],
+) -> Result<AesEncryptedParts, CryptoError> {
+    let cipher = Aes256Gcm::new_from_slice(key).expect("AES-256 金鑰長度由 &[u8; 32] 保證正確");
+    let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
+    let encrypted = cipher
+        .encrypt(&nonce, plaintext)
+        .map_err(|_| CryptoError::AuthTagMismatch)?;
+    // aes-gcm encrypt 回傳 ciphertext || tag(16)
+    let split_point = encrypted.len() - 16;
+    let ciphertext = encrypted[..split_point].to_vec();
+    let mut tag = [0u8; 16];
+    tag.copy_from_slice(&encrypted[split_point..]);
+    let nonce_arr: [u8; 12] = nonce.into();
+    Ok(AesEncryptedParts {
+        nonce: nonce_arr,
+        ciphertext,
+        tag,
+    })
+}
+
+/// 從各部件解密
+///
+/// 內部重組 `ciphertext || tag` 後呼叫 AES-GCM decrypt。
+///
+/// **簽名設計決策**：接受 `&AesEncryptedParts` struct 而非 crypto-spec.md
+/// 定義的 3 參數 `(key, nonce, ciphertext_with_tag)`。兩者為不同抽象層次：
+/// crypto-spec.md 描述密碼學原語介面，本函式為面向 bytecode format 的便利包裝，
+/// 內部將 struct 欄位重組為 `ciphertext || tag` 後調用 AES-GCM decrypt。
+/// 見設計決策表 D-1。
+pub fn aes_decrypt_parts(
+    key: &[u8; 32],
+    parts: &AesEncryptedParts,
+) -> Result<Vec<u8>, CryptoError> {
+    let cipher = Aes256Gcm::new_from_slice(key).expect("AES-256 金鑰長度由 &[u8; 32] 保證正確");
+    let mut combined = Vec::with_capacity(parts.ciphertext.len() + 16);
+    combined.extend_from_slice(&parts.ciphertext);
+    combined.extend_from_slice(&parts.tag);
+    let nonce = Nonce::from_slice(&parts.nonce);
+    cipher
+        .decrypt(nonce, combined.as_ref())
+        .map_err(|_| CryptoError::AuthTagMismatch)
+}
+
 // ── 便利 API（自動 nonce + prepend）─────────────────────────
 
 /// AES-256-GCM 加密（便利 API）。
@@ -353,5 +423,80 @@ mod tests {
                 "便利 API 密文長度應為 12(nonce) + {len}(plaintext) + 16(tag)"
             );
         }
+    }
+
+    // ── 欄位分離 API 測試（Phase 5 Task 02）──────────────────
+
+    #[test]
+    fn encrypt_parts_decrypt_parts_round_trip() {
+        let key = [42u8; 32];
+        let plaintext = b"hello world bytecode payload";
+        let parts = aes_encrypt_parts(&key, plaintext).unwrap();
+        assert_eq!(parts.nonce.len(), 12);
+        assert_eq!(parts.tag.len(), 16);
+        // 驗證密文不等於明文（加密確實發生）
+        assert_ne!(&parts.ciphertext[..], &plaintext[..]);
+        let decrypted = aes_decrypt_parts(&key, &parts).unwrap();
+        assert_eq!(decrypted, plaintext);
+    }
+
+    #[test]
+    fn encrypt_parts_empty_plaintext() {
+        let key = [42u8; 32];
+        let plaintext = b"";
+        let parts = aes_encrypt_parts(&key, plaintext).unwrap();
+        assert!(parts.ciphertext.is_empty());
+        assert_eq!(parts.nonce.len(), 12);
+        assert_eq!(parts.tag.len(), 16);
+        let decrypted = aes_decrypt_parts(&key, &parts).unwrap();
+        assert_eq!(decrypted, plaintext);
+    }
+
+    #[test]
+    fn encrypt_parts_large_plaintext() {
+        let key = [42u8; 32];
+        let plaintext = vec![0xAB_u8; 1_048_576]; // 1 MB
+        let parts = aes_encrypt_parts(&key, &plaintext).unwrap();
+        let decrypted = aes_decrypt_parts(&key, &parts).unwrap();
+        assert_eq!(decrypted, plaintext);
+    }
+
+    #[test]
+    fn wrong_key_fails_parts() {
+        let key = [42u8; 32];
+        let parts = aes_encrypt_parts(&key, b"hello").unwrap();
+        let wrong_key = [99u8; 32];
+        let result = aes_decrypt_parts(&wrong_key, &parts);
+        assert!(matches!(result, Err(CryptoError::AuthTagMismatch)));
+    }
+
+    #[test]
+    fn tampered_ciphertext_fails_parts() {
+        let key = [42u8; 32];
+        let mut parts = aes_encrypt_parts(&key, b"hello world").unwrap();
+        if !parts.ciphertext.is_empty() {
+            parts.ciphertext[0] ^= 0xFF;
+        }
+        let result = aes_decrypt_parts(&key, &parts);
+        assert!(matches!(result, Err(CryptoError::AuthTagMismatch)));
+    }
+
+    #[test]
+    fn tampered_tag_fails_parts() {
+        let key = [42u8; 32];
+        let mut parts = aes_encrypt_parts(&key, b"hello world").unwrap();
+        parts.tag[0] ^= 0xFF;
+        let result = aes_decrypt_parts(&key, &parts);
+        assert!(matches!(result, Err(CryptoError::AuthTagMismatch)));
+    }
+
+    #[test]
+    fn encrypt_parts_nonce_uniqueness() {
+        let key = [42u8; 32];
+        let plaintext = b"same plaintext";
+        let parts1 = aes_encrypt_parts(&key, plaintext).unwrap();
+        let parts2 = aes_encrypt_parts(&key, plaintext).unwrap();
+        // OsRng 產生的 nonce 應不同（碰撞機率 < 2^-96）
+        assert_ne!(parts1.nonce, parts2.nonce);
     }
 }

@@ -1,0 +1,17 @@
+[package]
+name = "bytecode_compiler"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+debug-mode = []
+
+[dependencies]
+rhai = { workspace = true }
+crypto = { path = "../../engine/crypto" }
+bridge_types = { path = "../../engine/bridge_types" }
+bincode = { workspace = true }
+blake3 = { workspace = true }
+serde = { workspace = true }
+clap = { workspace = true }
+thiserror = { workspace = true }

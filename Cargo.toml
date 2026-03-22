@@ -5,6 +5,7 @@ members = [
     "engine/bridge_types",
     "engine/state_hash",
     "engine/crypto",
+    "build/bytecode_compiler",
 ]
 
 [workspace.package]
@@ -37,6 +38,15 @@ aes-gcm = "0.10"
 ed25519-dalek = { version = "2", features = ["rand_core"] }
 getrandom = { version = "0.2", features = ["js"] }
 zeroize = { version = "1", features = ["derive"] }
+
+# ── Rhai 腳本引擎 ──
+rhai = { version = "1", features = ["only_i64", "no_module", "no_closure", "serde"] }
+
+# ── CLI ──
+clap = { version = "4", features = ["derive"] }
+
+# ── 錯誤處理 ──
+thiserror = "2"
 
 # ── 日誌 ──
 tracing = "0.1"

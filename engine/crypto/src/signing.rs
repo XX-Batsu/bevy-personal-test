@@ -39,6 +39,15 @@ impl SigningKeyPair {
         self.signing_key.verifying_key().to_bytes()
     }
 
+    /// 從 32-byte Ed25519 seed 還原 key pair（CLI 用，確定性生成）
+    ///
+    /// 與 `from_bytes` 語義等價（皆呼叫 `ed25519_dalek::SigningKey::from_bytes()`），
+    /// 命名區分用途：`from_bytes` 為通用還原，`from_seed` 強調 CLI seed-based
+    /// 確定性生成。見設計決策表 D-2。
+    pub fn from_seed(seed: &[u8; 32]) -> Self {
+        Self::from_bytes(seed)
+    }
+
     /// 簽署資料，回傳 64-byte 簽章。
     ///
     /// Ed25519 簽章為**確定性**（RFC 8032）：相同金鑰 + 相同資料 = 相同簽章。
@@ -171,5 +180,43 @@ mod tests {
         let key_pair = SigningKeyPair::generate();
         let sig: [u8; 64] = key_pair.sign(b"data");
         assert_eq!(sig.len(), 64);
+    }
+
+    // ── from_seed 測試（Phase 5 Task 02）──────────────────────
+
+    #[test]
+    fn from_seed_produces_consistent_key() {
+        let seed = [42u8; 32];
+        let kp1 = SigningKeyPair::from_seed(&seed);
+        let kp2 = SigningKeyPair::from_seed(&seed);
+        assert_eq!(kp1.public_key(), kp2.public_key());
+    }
+
+    #[test]
+    fn from_seed_sign_verify_round_trip() {
+        let seed = [42u8; 32];
+        let kp = SigningKeyPair::from_seed(&seed);
+        let data = b"test data for signing";
+        let sig = kp.sign(data);
+        let pub_key = kp.public_key();
+        assert!(verify_signature(&pub_key, data, &sig).is_ok());
+    }
+
+    #[test]
+    fn from_seed_different_seeds_different_keys() {
+        let kp1 = SigningKeyPair::from_seed(&[1u8; 32]);
+        let kp2 = SigningKeyPair::from_seed(&[2u8; 32]);
+        assert_ne!(kp1.public_key(), kp2.public_key());
+    }
+
+    #[test]
+    fn from_seed_matches_from_bytes() {
+        let seed = [42u8; 32];
+        let kp_seed = SigningKeyPair::from_seed(&seed);
+        let kp_bytes = SigningKeyPair::from_bytes(&seed);
+        assert_eq!(kp_seed.public_key(), kp_bytes.public_key());
+        // Ed25519 簽章為確定性（RFC 8032），同 key + 同 data = 同 signature
+        let data = b"verify equivalence";
+        assert_eq!(kp_seed.sign(data), kp_bytes.sign(data));
     }
 }

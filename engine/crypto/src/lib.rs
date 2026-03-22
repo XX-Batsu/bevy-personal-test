@@ -4,7 +4,10 @@ pub mod error;
 pub mod kdf;
 pub mod signing;
 
-pub use aes::{aes_decrypt, aes_encrypt, decrypt, encrypt};
+pub use aes::{
+    aes_decrypt, aes_decrypt_parts, aes_encrypt, aes_encrypt_parts, decrypt, encrypt,
+    AesEncryptedParts,
+};
 pub use ecdh::EcdhKeyPair;
 pub use error::CryptoError;
 pub use kdf::{build_hkdf_salt, derive_session_key, HKDF_INFO};
@@ -25,9 +28,14 @@ mod tests {
         let _: fn(&[u8; 32], &[u8; 32]) -> [u8; 64] = build_hkdf_salt;
         let _: fn(&[u8; 32], &[u8], &[u8; 64]) -> Result<(), CryptoError> = verify_signature;
         let _: &[u8] = HKDF_INFO;
+        // Phase 5 新增 re-export
+        let _: fn(&[u8; 32], &[u8]) -> Result<AesEncryptedParts, CryptoError> = aes_encrypt_parts;
+        let _: fn(&[u8; 32], &AesEncryptedParts) -> Result<Vec<u8>, CryptoError> =
+            aes_decrypt_parts;
         // EcdhKeyPair 與 SigningKeyPair 為 struct，透過建構驗證
         let _kp = EcdhKeyPair::generate();
         let _sp = SigningKeyPair::generate();
+        let _sp_seed = SigningKeyPair::from_seed(&[0u8; 32]);
     }
 
     /// ECDH → HKDF → AES 完整加密流程端對端驗證
