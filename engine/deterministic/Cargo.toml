@@ -1,0 +1,13 @@
+[package]
+name = "deterministic"
+version.workspace = true
+edition.workspace = true
+description = "確定性運算 crate — 跨平台 bit-exact 浮點、向量、RNG、時鐘型別"
+
+[dependencies]
+softfloat.workspace = true
+bincode.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+proptest = "1"

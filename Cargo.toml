@@ -1,0 +1,30 @@
+[workspace]
+resolver = "2"
+members = [
+    "engine/deterministic",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+
+[workspace.dependencies]
+# ── 確定性浮點 ──
+# pure Rust softfloat（forked from const_soft_float, by koute），精確釘選
+softfloat = "=1.0.0"
+
+# ── RNG ──
+# 保留於 workspace 層級供未來 crate 使用
+# （engine/deterministic 自行實作 PCG，不直接依賴）
+rand_pcg = "0.3"
+rand_core = "0.6"
+
+# ── 雜湊 ──
+blake3 = "1"
+
+# ── 序列化 ──
+bincode = "1"
+serde = { version = "1", features = ["derive"] }
+
+# ── 日誌 ──
+tracing = "0.1"
