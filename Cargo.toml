@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "engine/deterministic",
     "engine/bridge_types",
+    "engine/state_hash",
 ]
 
 [workspace.package]

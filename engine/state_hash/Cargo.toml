@@ -1,0 +1,13 @@
+[package]
+name = "state_hash"
+version = "0.1.0"
+edition = "2021"
+description = "blake3 state hashing for deterministic validation"
+
+[dependencies]
+blake3 = { workspace = true }
+deterministic = { path = "../deterministic" }
+bridge_types = { path = "../bridge_types" }
+
+[dev-dependencies]
+# 無需 serde/bincode — state_hash 不做序列化
