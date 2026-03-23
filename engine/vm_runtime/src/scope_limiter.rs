@@ -29,6 +29,27 @@ pub enum ScopeLimitError {
     },
 }
 
+impl std::fmt::Display for ScopeLimitError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ScopeLimitError::TooManyVariables { current, limit } => {
+                write!(f, "變數數量超過上限: current={}, limit={}", current, limit)
+            }
+            ScopeLimitError::VariableTooLarge {
+                var_name,
+                current_bytes,
+                limit,
+            } => {
+                write!(
+                    f,
+                    "變數 '{}' 大小超過上限: current_bytes={}, limit={}",
+                    var_name, current_bytes, limit
+                )
+            }
+        }
+    }
+}
+
 /// Scope 變數數量限制器
 ///
 /// 使用 `Arc<AtomicUsize>` 而非 `Rc<RefCell<usize>>`，因為 Rhai `on_def_var`

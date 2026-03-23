@@ -81,6 +81,15 @@ impl FrameBudget {
         self.remaining_ms = FRAME_BUDGET_MS;
     }
 
+    /// 手動扣減已消耗的時間（毫秒）
+    ///
+    /// Phase 8 `ScriptInstance::call_lifecycle_fn` 使用 `call_fn_with_scope`
+    /// 而非 `execute_with_budget()`，因此需在呼叫後手動扣減 budget。
+    /// `execute_with_budget()` 內部已自動扣減，不需額外呼叫此方法。
+    pub fn deduct_elapsed(&mut self, elapsed_ms: f64) {
+        self.remaining_ms -= elapsed_ms;
+    }
+
     /// 建立指定剩餘時間的預算（僅測試用）
     ///
     /// 用於模擬預算耗盡場景，避免直接存取 private 欄位。
@@ -226,6 +235,54 @@ impl SandboxedEngine {
     /// 取得內部 Engine 的不可變引用
     pub fn engine(&self) -> &rhai::Engine {
         &self.engine
+    }
+
+    /// 取得當前時間戳（微秒）
+    ///
+    /// Phase 8 ScriptInstance 使用此方法測量 callback 執行時間，
+    /// 再透過 `FrameBudget::deduct_elapsed()` 扣減。
+    pub fn now_micros(&self) -> u64 {
+        self.clock.now_micros()
+    }
+
+    /// 呼叫 AST 中定義的函數（含超時保護），回傳 `rhai::Dynamic`
+    ///
+    /// 使用 `rhai::Engine::call_fn` 在指定 Scope 上執行函數。
+    /// 呼叫前更新 `start_time`，確保 `on_progress` callback 能正確檢測超時。
+    /// `timeout_micros` 由呼叫端控制（預設 2ms，on_unload 為 3ms）。
+    ///
+    /// 固定回傳 `rhai::Dynamic`（非泛型），避免依賴 `rhai::Variant` trait
+    /// （需 `internals` feature gate）。呼叫端不需回傳值（lifecycle callback 回傳 `()`）。
+    pub fn call_fn_with_scope(
+        &self,
+        scope: &mut rhai::Scope,
+        ast: &rhai::AST,
+        fn_name: &str,
+        args: impl rhai::FuncArgs,
+    ) -> Result<rhai::Dynamic, Box<rhai::EvalAltResult>> {
+        // 更新起始時間戳（必須在 call_fn 之前，供 on_progress 計算 elapsed）
+        let start = self.clock.now_micros();
+        self.start_time.store(start, Ordering::Relaxed);
+
+        self.engine.call_fn(scope, ast, fn_name, args)
+    }
+
+    /// 執行 AST 頂層程式碼（非函數部分）到指定 Scope
+    ///
+    /// 用於 Phase 8 ScriptInstance 初始化：首次呼叫時執行 AST body（`let x = 0;` 等
+    /// 頂層語句），將變數注入 Scope。後續 `call_fn_with_scope` 呼叫的函數可修改這些變數。
+    ///
+    /// 與 `call_fn_with_scope` 的區別：
+    /// - `eval_ast_with_scope`：執行頂層語句，`let` 宣告的變數持久化至 Scope
+    /// - `call_fn_with_scope`：呼叫函數，函數內 `let` 宣告為函數局部（返回後移除）
+    pub fn eval_ast_with_scope(
+        &self,
+        scope: &mut rhai::Scope,
+        ast: &rhai::AST,
+    ) -> Result<rhai::Dynamic, Box<rhai::EvalAltResult>> {
+        let start = self.clock.now_micros();
+        self.start_time.store(start, Ordering::Relaxed);
+        self.engine.eval_ast_with_scope(scope, ast)
     }
 
     /// 在幀預算內執行腳本

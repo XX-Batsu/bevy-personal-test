@@ -80,6 +80,15 @@ pub enum ScriptError {
     /// 幀預算耗盡（remaining_ms ≤ 0）
     /// Phase 6 execute_with_budget() 在預算檢查時產生
     BudgetExhausted,
+
+    // ── Phase 8 新增 variant ──
+    /// Scope 大小限制違反（變數數超過 256 或單一變數超過 64KB）
+    /// Phase 8 ScriptInstance 在 callback 執行後 ScopeLimiter::check_scope_sizes() 觸發
+    ScopeLimitExceeded {
+        script_id: String,
+        detail: String,
+        tick: u64,
+    },
 }
 
 #[cfg(test)]

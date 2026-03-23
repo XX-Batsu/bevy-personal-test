@@ -30,19 +30,27 @@
 //! let result = engine.execute_with_budget("let y = 3 * 4; y", &mut budget);
 //! ```
 
+pub mod bridge_api;
 pub mod dynamic_convert;
 pub mod fallback;
 pub mod handle_registry;
+pub mod lifecycle;
 pub mod ops_cost;
 pub mod sandbox;
 pub mod scope_limiter;
+pub mod script_manager;
 
+pub use bridge_api::{
+    register_bridge_api, BridgeState, EntityIdAllocator, EventQueue, SharedState,
+};
 pub use bridge_types::ScriptError;
 pub use dynamic_convert::{to_deterministic, to_rhai_dynamic};
 pub use fallback::{
     emit_disable_notification, AnimationDefault, DisableReason, ScriptDisabled, ServerPosition,
 };
 pub use handle_registry::{HandleRegistry, DEFAULT_MAX_LIFETIME_FRAMES};
+pub use lifecycle::{LifecycleHookName, ScriptInstance};
 pub use ops_cost::{FrameOpsEntry, FrameOpsMetric, OpsCostTable, OpsTracker};
 pub use sandbox::{FrameBudget, SandboxedEngine};
 pub use scope_limiter::{ScopeLimitError, ScopeLimiter, SCOPE_MAX_VARS, SCOPE_MAX_VAR_BYTES};
+pub use script_manager::{ScriptErrorContext, ScriptId, ScriptManager, ScriptState};
