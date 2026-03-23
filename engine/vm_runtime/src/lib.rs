@@ -8,6 +8,13 @@
 //! - [`FrameBudget`]: 每幀時間預算管理器（4ms / frame）
 //! - [`ScriptError`]: 腳本執行錯誤（re-export from bridge_types）
 //! - [`ScopeLimiter`]: Scope 變數數量/大小限制器（Phase 7 擴充）
+//! - [`OpsCostTable`]: Bridge API 操作成本查詢表（Phase 7 擴充）
+//! - [`OpsTracker`]: Bridge API 操作計數器（remaining 語意，Phase 7 擴充）
+//! - [`FrameOpsMetric`]: 每幀操作歷史紀錄（10 幀滑動窗口，Phase 7 擴充）
+//! - [`FrameOpsEntry`]: 每幀操作統計條目（Phase 7 擴充）
+//! - [`HandleRegistry`]: VFX/Audio handle 生命週期管理（Phase 7 擴充）
+//! - [`DisableReason`]: 腳本停用原因（Phase 7 擴充）
+//! - [`ScriptDisabled`]: 腳本停用記錄（Phase 7 擴充）
 //!
 //! # 使用範例
 //! ```rust,no_run
@@ -23,9 +30,19 @@
 //! let result = engine.execute_with_budget("let y = 3 * 4; y", &mut budget);
 //! ```
 
+pub mod dynamic_convert;
+pub mod fallback;
+pub mod handle_registry;
+pub mod ops_cost;
 pub mod sandbox;
 pub mod scope_limiter;
 
 pub use bridge_types::ScriptError;
+pub use dynamic_convert::{to_deterministic, to_rhai_dynamic};
+pub use fallback::{
+    emit_disable_notification, AnimationDefault, DisableReason, ScriptDisabled, ServerPosition,
+};
+pub use handle_registry::{HandleRegistry, DEFAULT_MAX_LIFETIME_FRAMES};
+pub use ops_cost::{FrameOpsEntry, FrameOpsMetric, OpsCostTable, OpsTracker};
 pub use sandbox::{FrameBudget, SandboxedEngine};
 pub use scope_limiter::{ScopeLimitError, ScopeLimiter, SCOPE_MAX_VARS, SCOPE_MAX_VAR_BYTES};
