@@ -1,0 +1,14 @@
+[package]
+name = "bevy_runtime"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { workspace = true }
+vm_bevy_bridge = { path = "../vm_bevy_bridge" }
+vm_runtime = { path = "../vm_runtime" }
+deterministic = { path = "../deterministic" }
+tracing = { workspace = true }
+
+[dev-dependencies]
+bridge_types = { path = "../bridge_types" }

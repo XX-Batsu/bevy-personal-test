@@ -14,7 +14,7 @@
 
 use bridge_types::ScriptError;
 use deterministic::SoftF32;
-use rhai::{AST, Dynamic, Scope};
+use rhai::{Dynamic, Scope, AST};
 
 use crate::sandbox::{FrameBudget, SandboxedEngine};
 use crate::scope_limiter::ScopeLimiter;
@@ -155,9 +155,9 @@ impl ScriptInstance {
         //    因此頂層 `let x = 0;` 必須透過 eval_ast_with_scope 執行，函數才能修改 x。
         if !self.initialized {
             self.initialized = true;
-            let _ = engine.eval_ast_with_scope(&mut self.scope, &self.ast).map_err(|e| {
-                self.map_hook_error(*e)
-            })?;
+            let _ = engine
+                .eval_ast_with_scope(&mut self.scope, &self.ast)
+                .map_err(|e| self.map_hook_error(*e))?;
         }
 
         // 1. 函數不存在 → 靜默跳過
@@ -174,9 +174,7 @@ impl ScriptInstance {
 
         // 3. 記錄開始時間、呼叫函數
         let start_micros = engine.now_micros();
-        let result = match engine
-            .call_fn_with_scope(&mut self.scope, &self.ast, fn_name, args)
-        {
+        let result = match engine.call_fn_with_scope(&mut self.scope, &self.ast, fn_name, args) {
             Ok(_) => Ok(()),
             Err(e) => {
                 // 雙重保護：ErrorFunctionNotFound 即使穿過 has_function 檢查，
@@ -310,7 +308,10 @@ mod tests {
     #[test]
     fn test_on_tick_receives_dt() {
         let engine = test_engine();
-        let ast = compile_script(&engine, "let elapsed = 0.0;\nfn on_tick(dt) { elapsed = dt; }");
+        let ast = compile_script(
+            &engine,
+            "let elapsed = 0.0;\nfn on_tick(dt) { elapsed = dt; }",
+        );
         let mut inst = ScriptInstance::new("test".into(), ast, 0);
         let mut budget = test_budget();
         let dt = SoftF32::from_f64(1.0 / 60.0);
@@ -322,7 +323,10 @@ mod tests {
     #[test]
     fn test_on_unload_called() {
         let engine = test_engine();
-        let ast = compile_script(&engine, "let cleaned = false;\nfn on_unload() { cleaned = true; }");
+        let ast = compile_script(
+            &engine,
+            "let cleaned = false;\nfn on_unload() { cleaned = true; }",
+        );
         let mut inst = ScriptInstance::new("test".into(), ast, 0);
         assert!(inst.call_on_unload(&engine).is_ok());
         assert_eq!(inst.scope().get_value::<bool>("cleaned"), Some(true));
@@ -346,7 +350,10 @@ mod tests {
 
         assert!(inst.call_on_init(&engine, &mut budget).is_ok());
         assert_eq!(
-            inst.scope().get_value::<rhai::ImmutableString>("phase").unwrap().as_str(),
+            inst.scope()
+                .get_value::<rhai::ImmutableString>("phase")
+                .unwrap()
+                .as_str(),
             "init"
         );
 
@@ -354,13 +361,19 @@ mod tests {
             assert!(inst.call_on_tick(&engine, dt, &mut budget).is_ok());
         }
         assert_eq!(
-            inst.scope().get_value::<rhai::ImmutableString>("phase").unwrap().as_str(),
+            inst.scope()
+                .get_value::<rhai::ImmutableString>("phase")
+                .unwrap()
+                .as_str(),
             "tick"
         );
 
         assert!(inst.call_on_unload(&engine).is_ok());
         assert_eq!(
-            inst.scope().get_value::<rhai::ImmutableString>("phase").unwrap().as_str(),
+            inst.scope()
+                .get_value::<rhai::ImmutableString>("phase")
+                .unwrap()
+                .as_str(),
             "unload"
         );
     }
@@ -407,7 +420,10 @@ mod tests {
             .call_on_event(&engine, "damage", Dynamic::from(42_i64), &mut budget)
             .is_ok());
         assert_eq!(
-            inst.scope().get_value::<rhai::ImmutableString>("et").unwrap().as_str(),
+            inst.scope()
+                .get_value::<rhai::ImmutableString>("et")
+                .unwrap()
+                .as_str(),
             "damage"
         );
         assert_eq!(inst.scope().get_value::<i64>("ed"), Some(42));
@@ -433,7 +449,10 @@ mod tests {
             .call_on_input(&engine, "move", Dynamic::from(1_i64), &mut budget)
             .is_ok());
         assert_eq!(
-            inst.scope().get_value::<rhai::ImmutableString>("it").unwrap().as_str(),
+            inst.scope()
+                .get_value::<rhai::ImmutableString>("it")
+                .unwrap()
+                .as_str(),
             "move"
         );
         assert_eq!(inst.scope().get_value::<i64>("id"), Some(1));
@@ -478,7 +497,10 @@ mod tests {
         inst.call_on_tick(&engine, standard_dt(), &mut budget)
             .unwrap();
         assert_eq!(
-            inst.scope().get_value::<rhai::ImmutableString>("order").unwrap().as_str(),
+            inst.scope()
+                .get_value::<rhai::ImmutableString>("order")
+                .unwrap()
+                .as_str(),
             "EIT"
         );
     }
@@ -492,9 +514,7 @@ mod tests {
         let inst2 = ScriptInstance::new("a_script".into(), ast2, 5);
 
         let mut scripts = vec![inst1, inst2];
-        scripts.sort_by(|a, b| {
-            (a.priority, &a.script_id).cmp(&(b.priority, &b.script_id))
-        });
+        scripts.sort_by(|a, b| (a.priority, &a.script_id).cmp(&(b.priority, &b.script_id)));
 
         assert_eq!(scripts[0].priority, 5);
         assert_eq!(scripts[0].script_id, "a_script");
@@ -528,7 +548,9 @@ mod tests {
         assert!(inst
             .call_on_input(&engine, "i", Dynamic::UNIT, &mut budget)
             .is_ok());
-        assert!(inst.call_on_tick(&engine, standard_dt(), &mut budget).is_ok());
+        assert!(inst
+            .call_on_tick(&engine, standard_dt(), &mut budget)
+            .is_ok());
         assert!(inst.call_on_unload(&engine).is_ok());
     }
 
@@ -545,7 +567,10 @@ mod tests {
             .call_on_event(&engine, "", Dynamic::UNIT, &mut budget)
             .is_ok());
         assert_eq!(
-            inst.scope().get_value::<rhai::ImmutableString>("et").unwrap().as_str(),
+            inst.scope()
+                .get_value::<rhai::ImmutableString>("et")
+                .unwrap()
+                .as_str(),
             ""
         );
     }
@@ -590,7 +615,9 @@ mod tests {
         let result = inst.call_on_init(&engine, &mut budget);
         assert!(result.is_err());
         match result.unwrap_err() {
-            ScriptError::RuntimeError { script_id, message, .. } => {
+            ScriptError::RuntimeError {
+                script_id, message, ..
+            } => {
                 assert_eq!(script_id, "test");
                 assert!(message.contains("init failed"));
             }
@@ -690,7 +717,11 @@ mod tests {
         }
         let sum2 = inst2.scope().get_value::<f64>("sum").unwrap();
 
-        assert_eq!(sum1.to_bits(), sum2.to_bits(), "兩次執行結果應 bit-for-bit 一致");
+        assert_eq!(
+            sum1.to_bits(),
+            sum2.to_bits(),
+            "兩次執行結果應 bit-for-bit 一致"
+        );
     }
 
     #[test]
@@ -771,9 +802,7 @@ mod tests {
         let inst_a = ScriptInstance::new("a".into(), ast, 5);
 
         let mut scripts = vec![inst_b, inst_a];
-        scripts.sort_by(|a, b| {
-            (a.priority, &a.script_id).cmp(&(b.priority, &b.script_id))
-        });
+        scripts.sort_by(|a, b| (a.priority, &a.script_id).cmp(&(b.priority, &b.script_id)));
         assert_eq!(scripts[0].script_id, "a");
         assert_eq!(scripts[1].script_id, "b");
     }
@@ -817,7 +846,9 @@ mod tests {
         let mut budget = test_budget();
         let before = budget.remaining_ms();
         assert!(inst.call_on_init(&engine, &mut budget).is_ok());
-        assert!(inst.call_on_tick(&engine, standard_dt(), &mut budget).is_ok());
+        assert!(inst
+            .call_on_tick(&engine, standard_dt(), &mut budget)
+            .is_ok());
         assert!(inst
             .call_on_event(&engine, "e", Dynamic::UNIT, &mut budget)
             .is_ok());

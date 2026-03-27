@@ -3,15 +3,13 @@
 //! 驗證 Phase 6/7 產出的所有公開型別與方法可從外部 crate 使用且簽名正確。
 //! 不測試邊界行為（已在各模組內部測試覆蓋），僅確認 public API 可用性。
 
-use vm_runtime::{
-    DisableReason, FrameBudget, HandleRegistry, OpsCostTable, OpsTracker, SandboxedEngine,
-    ScriptDisabled, ScopeLimitError, ScopeLimiter,
-    to_deterministic, to_rhai_dynamic,
-    FrameOpsEntry, FrameOpsMetric,
-    emit_disable_notification,
-};
 use bridge_types::{DeterministicValue, EffectHandle, SoundHandle};
 use deterministic::SoftF32;
+use vm_runtime::{
+    emit_disable_notification, to_deterministic, to_rhai_dynamic, DisableReason, FrameBudget,
+    FrameOpsEntry, FrameOpsMetric, HandleRegistry, OpsCostTable, OpsTracker, SandboxedEngine,
+    ScopeLimitError, ScopeLimiter, ScriptDisabled,
+};
 
 // ═══════════════════════════════════════════════════════════════
 // ScopeLimiter 煙霧測試
@@ -36,7 +34,11 @@ fn test_scope_limiter_check_returns_scope_limit_error() {
     let result = ScopeLimiter::check_scope_sizes(&scope);
     assert!(result.is_err());
     match result.unwrap_err() {
-        ScopeLimitError::VariableTooLarge { var_name, current_bytes, limit } => {
+        ScopeLimitError::VariableTooLarge {
+            var_name,
+            current_bytes,
+            limit,
+        } => {
             assert_eq!(var_name, "big_var");
             assert_eq!(current_bytes, 65_537);
             assert_eq!(limit, 65_536);
@@ -81,7 +83,11 @@ fn test_ops_tracker_deduct_overflow() {
 fn test_ops_tracker_deduct_error_format() {
     let mut tracker = OpsTracker::with_limit(10);
     let err = tracker.deduct(11).unwrap_err();
-    assert!(err.contains("remaining=10"), "錯誤訊息應含 remaining: {}", err);
+    assert!(
+        err.contains("remaining=10"),
+        "錯誤訊息應含 remaining: {}",
+        err
+    );
     assert!(err.contains("cost=11"), "錯誤訊息應含 cost: {}", err);
 }
 
@@ -281,7 +287,10 @@ fn test_to_deterministic_bool() {
 
 #[test]
 fn test_to_deterministic_unit() {
-    assert_eq!(to_deterministic(&rhai::Dynamic::UNIT), DeterministicValue::Unit);
+    assert_eq!(
+        to_deterministic(&rhai::Dynamic::UNIT),
+        DeterministicValue::Unit
+    );
 }
 
 #[test]
@@ -327,7 +336,10 @@ fn test_to_rhai_dynamic_unit() {
 fn test_to_rhai_dynamic_str() {
     let det = DeterministicValue::Str("hello".to_string());
     let dyn_val = to_rhai_dynamic(&det);
-    assert_eq!(dyn_val.clone_cast::<rhai::ImmutableString>().as_str(), "hello");
+    assert_eq!(
+        dyn_val.clone_cast::<rhai::ImmutableString>().as_str(),
+        "hello"
+    );
 }
 
 #[test]

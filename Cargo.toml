@@ -7,6 +7,8 @@ members = [
     "engine/crypto",
     "engine/vm_runtime",
     "build/bytecode_compiler",
+    "engine/bevy_runtime",
+    "engine/vm_bevy_bridge",
 ]
 
 [workspace.package]
@@ -51,3 +53,8 @@ thiserror = "2"
 
 # ── 日誌 ──
 tracing = "0.1"
+
+# ── 遊戲引擎 ──
+bevy = { version = "0.15", default-features = false, features = [
+    "bevy_render",
+] }
