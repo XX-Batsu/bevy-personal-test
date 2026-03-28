@@ -1,0 +1,22 @@
+[package]
+name = "netcode"
+version.workspace = true
+edition.workspace = true
+description = "Client 端 netcode：prediction、rollback、state hash 驗證、斷線重連"
+
+[dependencies]
+bridge_types  = { path = "../bridge_types" }
+deterministic = { path = "../deterministic" }
+state_hash    = { path = "../state_hash" }
+blake3        = { workspace = true }
+bincode       = { workspace = true }
+serde         = { workspace = true }
+tracing       = { workspace = true }
+hex           = { workspace = true, optional = true }
+
+[features]
+debug-mode = ["dep:hex"]
+deterministic-replay = []
+
+[dev-dependencies]
+proptest = { workspace = true }

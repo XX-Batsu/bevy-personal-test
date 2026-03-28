@@ -9,6 +9,11 @@ members = [
     "build/bytecode_compiler",
     "engine/bevy_runtime",
     "engine/vm_bevy_bridge",
+    # ── Phase 11 ──
+    "engine/netcode",
+    "server/simulation",
+    "server/validator",
+    "server/replay_engine",
 ]
 
 [workspace.package]
@@ -62,3 +67,8 @@ bevy = { version = "0.15", default-features = false, features = [
 
 # ── 物理引擎 ──
 bevy_rapier3d = { version = "0.29", default-features = false, features = ["dim3"] }
+
+# ── Phase 11: Replay 壓縮 ──
+flate2 = "1"
+hex = "0.4"
+proptest = "1"
