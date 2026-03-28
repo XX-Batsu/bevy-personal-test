@@ -3,11 +3,18 @@ name = "bevy_runtime"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+plaintext-assets = []
+
 [dependencies]
 bevy = { workspace = true }
+bevy_rapier3d = { workspace = true }
 vm_bevy_bridge = { path = "../vm_bevy_bridge" }
 vm_runtime = { path = "../vm_runtime" }
 deterministic = { path = "../deterministic" }
+crypto = { path = "../crypto" }
+zeroize = { workspace = true }
+thiserror = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]

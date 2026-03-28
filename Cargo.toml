@@ -56,5 +56,9 @@ tracing = "0.1"
 
 # ── 遊戲引擎 ──
 bevy = { version = "0.15", default-features = false, features = [
+    "bevy_asset",
     "bevy_render",
 ] }
+
+# ── 物理引擎 ──
+bevy_rapier3d = { version = "0.29", default-features = false, features = ["dim3"] }

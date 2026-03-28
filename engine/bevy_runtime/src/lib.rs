@@ -3,11 +3,24 @@
 //! 提供 [`GamePlugin`] 作為最頂層 Plugin，整合 FixedUpdate 60Hz 排程與渲染插值。
 //! [`GamePlugin`] 須在 `vm_bevy_bridge::BridgePlugin` 之前加入 App。
 
+pub mod asset_decryption;
 pub mod fixed_update;
 pub mod interpolation;
+pub mod memory_monitor;
+pub mod physics;
 
+pub use asset_decryption::{
+    AssetDecryptionError, AssetDecryptionPlugin, EncryptedAssetReader, SessionKeyStore,
+    SharedKeyStore,
+};
 pub use fixed_update::{FixedTickCounter, FixedUpdatePlugin};
 pub use interpolation::{interpolate_rendering, save_previous_transform, PreviousTransform};
+pub use memory_monitor::{
+    MemoryError, MemoryMonitor, MemoryMonitorPlugin, MemoryRegion, RegionGuard, RegionReport,
+};
+pub use physics::{
+    rapier_to_soft_vec, soft_to_rapier_vec, CollisionEvents, CollisionState, PhysicsPlugin,
+};
 // GameFixedSet 權威定義在 vm_bevy_bridge::schedule，此處 re-export 保持相容
 pub use vm_bevy_bridge::GameFixedSet;
 
@@ -38,6 +51,9 @@ impl Plugin for GamePlugin {
 
         // 3. 渲染插值：每渲染幀做 lerp/slerp
         app.add_systems(Update, interpolate_rendering);
+
+        // 4. Phase 10 sub-plugins
+        app.add_plugins((PhysicsPlugin, MemoryMonitorPlugin));
     }
 }
 
