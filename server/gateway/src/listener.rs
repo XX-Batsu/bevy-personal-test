@@ -1,0 +1,242 @@
+use axum::{
+    extract::ws::{Message, WebSocket, WebSocketUpgrade},
+    response::IntoResponse,
+    routing::get,
+    Router,
+};
+use std::{error::Error, net::SocketAddr};
+use tokio::net::TcpListener;
+use tokio::sync::oneshot;
+use tracing::{debug, info};
+
+use crate::config::GatewayConfig;
+
+/// 啟動 `WebSocket` listener 及 /health endpoint
+///
+/// # 架構說明
+/// - 使用 axum `Router` 定義兩個路由：
+///   - `GET /health` → `health_handler`（回傳 200 "OK"）
+///   - `GET /ws` → `ws_handler`（`WebSocket` upgrade）
+/// - `axum::serve` + `with_graceful_shutdown` 配合 shutdown channel
+/// - `tokio::spawn` 背景執行 server，主 task 立即回傳
+///
+/// # 回傳型別說明
+/// `Box<dyn Error + Send + Sync>` 為暫時設計；
+/// Phase 15 整合時將定義 `GatewayError` 統一錯誤型別。
+pub async fn start_ws_listener(
+    config: GatewayConfig,
+) -> Result<(SocketAddr, oneshot::Sender<()>), Box<dyn Error + Send + Sync>> {
+    let router = Router::new()
+        .route("/health", get(health_handler))
+        .route("/ws", get(ws_handler));
+
+    let listener = TcpListener::bind(config.ws_addr).await?;
+    let addr = listener.local_addr()?;
+
+    let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
+
+    tokio::spawn(async move {
+        axum::serve(listener, router)
+            .with_graceful_shutdown(async move {
+                let _ = shutdown_rx.await;
+                info!("Gateway WebSocket listener 正在關閉");
+            })
+            .await
+            .expect("axum server 不應在正常運行中失敗");
+    });
+
+    info!(%addr, "Gateway WebSocket listener 已啟動");
+    Ok((addr, shutdown_tx))
+}
+
+/// /health endpoint — 回傳 "OK"（HTTP 200）
+async fn health_handler() -> impl IntoResponse {
+    "OK"
+}
+
+/// /ws endpoint — 執行 `WebSocket` upgrade
+async fn ws_handler(ws: WebSocketUpgrade) -> impl IntoResponse {
+    ws.on_upgrade(handle_ws_connection)
+}
+
+/// `WebSocket` 連線處理迴圈（Phase 15 整合時補齊 Session 管理邏輯）
+async fn handle_ws_connection(mut socket: WebSocket) {
+    info!("WebSocket 連線已建立");
+    while let Some(msg) = socket.recv().await {
+        match msg {
+            Ok(Message::Close(_)) => {
+                info!("WebSocket 連線已關閉");
+                break;
+            }
+            Ok(msg) => {
+                debug!(?msg, "收到 WebSocket 訊息");
+                // Phase 21 僅記錄，訊息分派邏輯延後至 Phase 15
+            }
+            Err(e) => {
+                info!(error = %e, "WebSocket 接收錯誤");
+                break;
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::GatewayConfig;
+    use std::time::Duration;
+
+    /// 輔助函式：建立測試用 GatewayConfig（port 0 動態分配）
+    fn test_config() -> GatewayConfig {
+        GatewayConfig {
+            ws_addr: "127.0.0.1:0".parse().unwrap(), // port 0 = OS 動態分配
+            ..GatewayConfig::default()
+        }
+    }
+
+    // ── 必要測試（2 個）──────────────────────────────
+
+    #[tokio::test]
+    async fn health_check_returns_200() {
+        let (addr, _shutdown_tx) = start_ws_listener(test_config())
+            .await
+            .expect("listener 啟動應成功");
+
+        let url = format!("http://{}/health", addr);
+        let response = tokio::time::timeout(Duration::from_secs(5), reqwest::get(&url))
+            .await
+            .expect("health check 不應逾時")
+            .expect("HTTP GET 應成功");
+
+        assert_eq!(response.status(), 200);
+        let body = response.text().await.unwrap();
+        assert_eq!(body, "OK");
+    }
+
+    #[tokio::test]
+    async fn websocket_upgrade_works() {
+        let (addr, _shutdown_tx) = start_ws_listener(test_config())
+            .await
+            .expect("listener 啟動應成功");
+
+        let url = format!("ws://{}/ws", addr);
+        let result = tokio::time::timeout(
+            Duration::from_secs(5),
+            tokio_tungstenite::connect_async(&url),
+        )
+        .await
+        .expect("WebSocket 連線不應逾時");
+
+        assert!(
+            result.is_ok(),
+            "WebSocket upgrade 應成功: {:?}",
+            result.err()
+        );
+    }
+
+    // ── 選用測試（6 個）─────────────────────────────
+
+    #[tokio::test]
+    async fn shutdown_signal_accepted() {
+        let (addr, shutdown_tx) = start_ws_listener(test_config())
+            .await
+            .expect("listener 啟動應成功");
+
+        // 先確認 health check 可達（證明 listener 已就緒）
+        let url = format!("http://{}/health", addr);
+        tokio::time::timeout(Duration::from_secs(5), reqwest::get(&url))
+            .await
+            .expect("health check 不應逾時")
+            .expect("HTTP GET 應成功");
+
+        // 發送 shutdown 信號
+        let _ = shutdown_tx.send(());
+
+        // 等待 graceful shutdown 完成
+        tokio::time::sleep(Duration::from_millis(200)).await;
+
+        // 嘗試新連線應被拒絕
+        let connect_result = tokio::net::TcpStream::connect(addr).await;
+        assert!(
+            connect_result.is_err(),
+            "shutdown 後連線應被拒絕，實際結果: {:?}",
+            connect_result
+        );
+    }
+
+    #[tokio::test]
+    async fn port_zero_assigns_dynamic() {
+        let (addr, _shutdown_tx) = start_ws_listener(test_config())
+            .await
+            .expect("listener 啟動應成功");
+        assert!(addr.port() > 0, "動態分配的 port 應大於 0");
+    }
+
+    #[tokio::test]
+    async fn unknown_route_returns_404() {
+        let (addr, _shutdown_tx) = start_ws_listener(test_config())
+            .await
+            .expect("listener 啟動應成功");
+
+        let url = format!("http://{}/nonexistent", addr);
+        let response = tokio::time::timeout(Duration::from_secs(5), reqwest::get(&url))
+            .await
+            .expect("請求不應逾時")
+            .expect("HTTP GET 應成功");
+
+        assert_eq!(response.status(), 404);
+    }
+
+    #[tokio::test]
+    async fn bind_failure_returns_error() {
+        // 先成功 bind 一個 port
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let occupied_addr = listener.local_addr().unwrap();
+
+        // 嘗試 bind 同一個 port 應失敗
+        let config = GatewayConfig {
+            ws_addr: occupied_addr,
+            ..GatewayConfig::default()
+        };
+        let result = start_ws_listener(config).await;
+        assert!(result.is_err(), "重複 bind 同一 port 應回傳 Err");
+    }
+
+    #[tokio::test]
+    async fn concurrent_health_checks() {
+        let (addr, _shutdown_tx) = start_ws_listener(test_config())
+            .await
+            .expect("listener 啟動應成功");
+
+        let url = format!("http://{}/health", addr);
+        let (r1, r2, r3, r4, r5) = tokio::join!(
+            reqwest::get(&url),
+            reqwest::get(&url),
+            reqwest::get(&url),
+            reqwest::get(&url),
+            reqwest::get(&url),
+        );
+        assert_eq!(r1.unwrap().status(), 200);
+        assert_eq!(r2.unwrap().status(), 200);
+        assert_eq!(r3.unwrap().status(), 200);
+        assert_eq!(r4.unwrap().status(), 200);
+        assert_eq!(r5.unwrap().status(), 200);
+    }
+
+    #[tokio::test]
+    async fn websocket_invalid_path_returns_404() {
+        let (addr, _shutdown_tx) = start_ws_listener(test_config())
+            .await
+            .expect("listener 啟動應成功");
+
+        let url = format!("ws://{}/invalid", addr);
+        let result = tokio::time::timeout(
+            Duration::from_secs(5),
+            tokio_tungstenite::connect_async(&url),
+        )
+        .await
+        .expect("連線嘗試不應逾時");
+
+        assert!(result.is_err(), "WebSocket upgrade 到不存在的路徑應失敗");
+    }
+}

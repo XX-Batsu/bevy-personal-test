@@ -17,6 +17,9 @@ members = [
     # ── Phase 12 ──
     "server/key_exchange",
     "server/hot_update_cdn",
+    # ── Phase 13 ──
+    "engine/protocol",
+    "server/gateway",
 ]
 
 [workspace.package]
@@ -58,6 +61,16 @@ clap = { version = "4", features = ["derive"] }
 
 # ── 錯誤處理 ──
 thiserror = "2"
+
+# ── 非同步 ──
+async-trait = "0.1"
+
+# ── Phase 13: Server Gateway ──
+axum = "0.8"
+tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = "0.26"
+wtransport = "0.5"
+tower = "0.5"
 
 # ── 日誌 ──
 tracing = "0.1"
