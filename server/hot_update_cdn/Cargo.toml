@@ -1,0 +1,12 @@
+[package]
+name = "hot_update_cdn"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bridge_types = { path = "../../engine/bridge_types" }
+crypto = { path = "../../engine/crypto" }
+key_exchange = { path = "../key_exchange" }
+bincode = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }

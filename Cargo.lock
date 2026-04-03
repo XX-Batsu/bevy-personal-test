@@ -2146,6 +2146,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "hot_update_cdn"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "bridge_types",
+ "crypto",
+ "key_exchange",
+ "thiserror 2.0.18",
+ "tracing",
+]
+
+[[package]]
 name = "id-arena"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2281,6 +2293,19 @@ checksum = "b49715b7073f385ba4bc528e5747d02e66cb39c6146efb66b781f131f0fb399c"
 dependencies = [
  "once_cell",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "key_exchange"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "crypto",
+ "rand_core 0.6.4",
+ "serde",
+ "thiserror 2.0.18",
+ "tracing",
+ "zeroize",
 ]
 
 [[package]]
