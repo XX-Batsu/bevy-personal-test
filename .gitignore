@@ -8,6 +8,9 @@ bytecode/
 *.wasm
 *.bc
 
+# Git worktrees
+.worktrees/
+
 # OS
 .DS_Store
 Thumbs.db

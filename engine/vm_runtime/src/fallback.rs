@@ -287,7 +287,7 @@ mod tests {
     fn make_entry(frame: u64, rhai_ops: u64, bridge_ops: u64, time_ms: f64) -> FrameOpsEntry {
         FrameOpsEntry {
             frame,
-            per_script: vec![("test.rhai".to_string(), rhai_ops, bridge_ops)],
+            per_script: vec![("test.rhai".to_string(), rhai_ops, bridge_ops, time_ms)],
             total_rhai_ops: rhai_ops,
             total_bridge_ops: bridge_ops,
             time_ms,

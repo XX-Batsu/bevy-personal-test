@@ -31,11 +31,15 @@
 //! ```
 
 pub mod bridge_api;
+#[cfg(feature = "debug-mode")]
+pub mod dev_tools;
 pub mod dynamic_convert;
 pub mod fallback;
 pub mod handle_registry;
+pub mod hot_update;
 pub mod lifecycle;
 pub mod ops_cost;
+pub mod performance;
 pub mod sandbox;
 pub mod scope_limiter;
 pub mod script_manager;
@@ -54,3 +58,103 @@ pub use ops_cost::{FrameOpsEntry, FrameOpsMetric, OpsCostTable, OpsTracker};
 pub use sandbox::{FrameBudget, SandboxedEngine};
 pub use scope_limiter::{ScopeLimitError, ScopeLimiter, SCOPE_MAX_VARS, SCOPE_MAX_VAR_BYTES};
 pub use script_manager::{ScriptErrorContext, ScriptId, ScriptManager, ScriptState};
+
+// Phase 16：效能監控（無條件公開）
+pub use performance::{
+    record_script_timing, AutoDisableManager, AutoDisableState, DiagnosticsResource,
+    ScriptDiagnostics,
+};
+
+// Phase 16：OTA 熱更新（無條件公開）
+pub use hot_update::{
+    HotUpdateManager, UpdateAck, UpdateBuffer, UpdateError, OTA_CHUNK_SIZE,
+    OTA_REASSEMBLY_TIMEOUT_US,
+};
+
+// Phase 16：共用重載型別（debug-mode：native + WASM 皆可用）
+#[cfg(feature = "debug-mode")]
+pub use dev_tools::{ReloadEvent, ReloadResult};
+
+// Phase 16：File Watcher（dev-file-watcher：native-only）
+#[cfg(all(feature = "dev-file-watcher", not(target_arch = "wasm32")))]
+pub use dev_tools::file_watcher::{FileWatcher, WatcherError};
+
+// Phase 16：Debug Console（debug-mode）
+#[cfg(feature = "debug-mode")]
+pub use dev_tools::console::{
+    script_eval, script_eval_in, script_list, script_perf, script_vars, set_frame_ops_metric_ref,
+    set_sandboxed_engine_ref, set_script_manager_ref,
+};
+
+#[cfg(test)]
+mod smoke {
+    use super::*;
+    use deterministic::SoftF32;
+
+    #[test]
+    fn phase8_script_manager_compiles() {
+        let _sm = ScriptManager::new();
+    }
+
+    #[test]
+    fn phase8_tick_all_signature() {
+        // 驗證 tick_all 四參數簽名（dt, budget, engine）— 對齊 Phase 8 實際產出
+        let _: fn(
+            &mut ScriptManager,
+            SoftF32,
+            &mut FrameBudget,
+            &SandboxedEngine,
+        ) -> Vec<ScriptErrorContext> = ScriptManager::tick_all;
+    }
+
+    #[test]
+    fn phase5_bytecode_load_sig_exists() {
+        // 驗證 bytecode_compiler::load 符號可達（參數名: verifying_key, decryption_key）
+        let _: fn(
+            &[u8],
+            &[u8; 32],
+            &[u8; 32],
+        ) -> Result<
+            (bytecode_compiler::ScriptMetadata, rhai::AST),
+            bytecode_compiler::LoadError,
+        > = bytecode_compiler::load;
+    }
+
+    #[test]
+    fn phase6_clock_trait_reachable() {
+        use deterministic::Clock;
+        fn _uses_clock<C: Clock>(c: &C) {
+            let _: u64 = c.now_micros();
+        }
+    }
+
+    #[test]
+    fn phase6_sandbox_engine_reachable() {
+        fn _uses_engine(_e: &SandboxedEngine) {}
+        fn _uses_budget(_b: &FrameBudget) {}
+    }
+
+    #[test]
+    fn phase5_load_error_variants() {
+        fn _check_variants(e: bytecode_compiler::LoadError) {
+            match e {
+                bytecode_compiler::LoadError::Format(_) => {}
+                bytecode_compiler::LoadError::SignatureVerificationFailed => {}
+                bytecode_compiler::LoadError::DecryptionFailed(_) => {}
+                _ => {}
+            }
+        }
+    }
+
+    #[test]
+    fn phase8_load_script_signature() {
+        // 驗證 load_script 四參數簽名（id, ast, priority, engine）— 對齊 Phase 8 實際產出
+        let _: fn(
+            &mut ScriptManager,
+            ScriptId,
+            rhai::AST,
+            u8,
+            &SandboxedEngine,
+        ) -> Result<(), ScriptErrorContext> = ScriptManager::load_script;
+    }
+}

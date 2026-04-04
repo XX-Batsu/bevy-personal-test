@@ -132,14 +132,15 @@ use std::collections::VecDeque;
 /// 每幀操作統計紀錄
 ///
 /// 對齊上游 diagnostics.md §FrameOpsEntry 介面。
-/// per_script 三元組為 (script_id, rhai_ops, bridge_ops)，雙軌 ops 獨立計數。
+/// per_script 四元組為 (script_id, rhai_ops, bridge_ops, time_ms)，雙軌 ops 獨立計數。
 #[derive(Debug, Clone)]
 pub struct FrameOpsEntry {
     /// 幀號（遊戲 tick 計數）
     pub frame: u64,
-    /// 各腳本的執行統計 (script_id, rhai_ops, bridge_ops)
+    /// 各腳本的執行統計 (script_id, rhai_ops, bridge_ops, time_ms)
     /// 使用 Vec 而非 BTreeMap：entry 為歷史快照，順序固定（已按 priority 排序）
-    pub per_script: Vec<(String, u64, u64)>,
+    /// 第 4 欄位 time_ms 為 per-script 執行時間（f64 毫秒，僅診斷用途）
+    pub per_script: Vec<(String, u64, u64, f64)>,
     /// 本幀所有腳本 Rhai ops 總和
     pub total_rhai_ops: u64,
     /// 本幀所有腳本 Bridge ops 總和
@@ -185,7 +186,8 @@ impl FrameOpsMetric {
     ) {
         if let Some(last) = self.history.back_mut() {
             if last.frame == frame {
-                last.per_script.push((script_id, rhai_ops, bridge_ops));
+                last.per_script
+                    .push((script_id, rhai_ops, bridge_ops, time_ms));
                 last.total_rhai_ops += rhai_ops;
                 last.total_bridge_ops += bridge_ops;
                 last.time_ms += time_ms;
@@ -198,7 +200,7 @@ impl FrameOpsMetric {
         }
         self.history.push_back(FrameOpsEntry {
             frame,
-            per_script: vec![(script_id, rhai_ops, bridge_ops)],
+            per_script: vec![(script_id, rhai_ops, bridge_ops, time_ms)],
             total_rhai_ops: rhai_ops,
             total_bridge_ops: bridge_ops,
             time_ms,
@@ -575,10 +577,11 @@ mod tests {
         let h = metric.history(10);
         assert_eq!(h.len(), 1);
         assert_eq!(h[0].per_script.len(), 1);
-        // 驗證三元組 (script_id, rhai_ops, bridge_ops)
+        // 驗證四元組 (script_id, rhai_ops, bridge_ops, time_ms)
         assert_eq!(h[0].per_script[0].0, "script_a");
         assert_eq!(h[0].per_script[0].1, 100); // rhai_ops
         assert_eq!(h[0].per_script[0].2, 50); // bridge_ops
+        assert!((h[0].per_script[0].3 - 0.5).abs() < 0.001); // time_ms
         assert_eq!(h[0].total_bridge_ops, 50);
     }
 
@@ -660,15 +663,16 @@ mod tests {
     }
 
     #[test]
-    fn test_frame_ops_per_script_three_tuple() {
+    fn test_frame_ops_per_script_four_tuple() {
         let mut metric = FrameOpsMetric::new();
         metric.record(1, "a".to_string(), 100, 20, 0.5);
         let h = metric.history(10);
-        // 驗證三元組結構：(script_id, rhai_ops, bridge_ops)
-        let (ref id, rhai, bridge) = h[0].per_script[0];
+        // 驗證四元組結構：(script_id, rhai_ops, bridge_ops, time_ms)
+        let (ref id, rhai, bridge, time) = h[0].per_script[0];
         assert_eq!(id, "a");
         assert_eq!(rhai, 100);
         assert_eq!(bridge, 20);
+        assert!((time - 0.5).abs() < 0.001);
     }
 
     #[test]

@@ -75,6 +75,17 @@ impl ScriptInstance {
         &mut self.scope
     }
 
+    /// 替換 AST 並重置 Scope（OTA A/B swap 使用）
+    ///
+    /// 回傳舊 AST（供 rollback 使用）。替換後 Scope 清空、initialized 重置，
+    /// 呼叫端需自行呼叫 call_on_init() 初始化新腳本。
+    pub fn replace_ast(&mut self, new_ast: AST) -> AST {
+        let old_ast = std::mem::replace(&mut self.ast, new_ast);
+        self.scope = Scope::new();
+        self.initialized = false;
+        old_ast
+    }
+
     /// 呼叫 on_init()。FnNotFound → Ok(())，執行後驗證 Scope 大小。
     pub fn call_on_init(
         &mut self,

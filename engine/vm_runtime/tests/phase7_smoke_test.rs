@@ -248,16 +248,16 @@ fn test_frame_ops_entry_sum_consistency() {
     let entry = FrameOpsEntry {
         frame: 1,
         per_script: vec![
-            ("a".to_string(), 100, 20),
-            ("b".to_string(), 200, 30),
-            ("c".to_string(), 300, 50),
+            ("a".to_string(), 100, 20, 0.5),
+            ("b".to_string(), 200, 30, 0.6),
+            ("c".to_string(), 300, 50, 0.4),
         ],
         total_rhai_ops: 600,
         total_bridge_ops: 100,
         time_ms: 1.5,
     };
-    let sum_rhai: u64 = entry.per_script.iter().map(|(_, r, _)| r).sum();
-    let sum_bridge: u64 = entry.per_script.iter().map(|(_, _, b)| b).sum();
+    let sum_rhai: u64 = entry.per_script.iter().map(|(_, r, _, _)| r).sum();
+    let sum_bridge: u64 = entry.per_script.iter().map(|(_, _, b, _)| b).sum();
     assert_eq!(entry.total_rhai_ops, sum_rhai);
     assert_eq!(entry.total_bridge_ops, sum_bridge);
 }

@@ -353,6 +353,124 @@ impl ScriptManager {
             .any(|((_, sid), m)| sid == id && matches!(m.state, ScriptState::Disabled(_)))
     }
 
+    /// 取得指定腳本的 Scope（不可變引用）
+    /// Debug console script_vars 使用
+    #[cfg(feature = "debug-mode")]
+    pub fn script_scope(&self, script_id: &str) -> Option<&rhai::Scope<'static>> {
+        self.scripts
+            .iter()
+            .find(|((_, sid), _)| sid.0 == script_id)
+            .map(|(_, m)| m.instance.scope())
+    }
+
+    /// 取得指定腳本的 Scope（可變引用）
+    /// Debug console script_eval_in 使用
+    #[cfg(feature = "debug-mode")]
+    pub fn script_scope_mut(&mut self, script_id: &str) -> Option<&mut rhai::Scope<'static>> {
+        self.scripts
+            .iter_mut()
+            .find(|((_, sid), _)| sid.0 == script_id)
+            .map(|(_, m)| m.instance.scope_mut())
+    }
+
+    /// 取得 priority 最小的第一個 active 腳本的 Scope（可變引用）
+    /// 回傳 (script_id, scope)
+    /// Debug console script_eval 使用
+    #[cfg(feature = "debug-mode")]
+    pub fn first_active_script_scope_mut(&mut self) -> Option<(String, &mut rhai::Scope<'static>)> {
+        self.scripts
+            .iter_mut()
+            .find(|(_, m)| matches!(m.state, ScriptState::Active))
+            .map(|((_, sid), m)| (sid.0.clone(), m.instance.scope_mut()))
+    }
+
+    /// 取得指定腳本的 priority
+    /// Debug console script_list 使用
+    #[cfg(feature = "debug-mode")]
+    pub fn script_priority(&self, id: &ScriptId) -> Option<u8> {
+        self.scripts
+            .keys()
+            .find(|(_, sid)| sid == id)
+            .map(|(p, _)| *p)
+    }
+
+    /// 替換腳本 AST（OTA A/B swap）
+    ///
+    /// 流程：on_unload(舊) → swap AST → on_init(新)
+    /// 若 on_init 失敗 → rollback（換回舊 AST，重新 on_init 舊腳本）
+    /// 成功後清除 disabled 狀態（re-enable）
+    pub fn replace_script(
+        &mut self,
+        script_id: &ScriptId,
+        new_ast: AST,
+        engine: &SandboxedEngine,
+    ) -> Result<(), ScriptErrorContext> {
+        // 找到含此 ScriptId 的 key
+        let key = self
+            .scripts
+            .keys()
+            .find(|(_, sid)| sid == script_id)
+            .cloned();
+
+        let key = match key {
+            Some(k) => k,
+            None => {
+                return Err(self.wrap_error(
+                    ScriptError::RuntimeError {
+                        script_id: script_id.0.clone(),
+                        message: "ScriptNotFound".to_string(),
+                        tick: self.tick,
+                    },
+                    script_id,
+                    LifecycleHookName::Init,
+                ));
+            }
+        };
+
+        let managed = self.scripts.get_mut(&key).unwrap();
+
+        // 1. on_unload 舊腳本（錯誤僅 warn，不阻止替換）
+        if let Err(e) = managed.instance.call_on_unload(engine) {
+            tracing::warn!(
+                "OTA replace_script on_unload 錯誤（仍繼續替換）: script_id={}, error={:?}",
+                script_id.0,
+                e
+            );
+        }
+
+        // 2. swap AST（取回舊 AST 供 rollback）
+        let old_ast = managed.instance.replace_ast(new_ast);
+
+        // 3. on_init 新腳本
+        let mut budget = FrameBudget::new();
+        if let Err(init_error) = managed.instance.call_on_init(engine, &mut budget) {
+            // rollback：換回舊 AST
+            tracing::warn!(
+                "OTA replace_script on_init 失敗，回滾至舊腳本: script_id={}, error={:?}",
+                script_id.0,
+                init_error
+            );
+            managed.instance.replace_ast(old_ast);
+            // 嘗試重新初始化舊腳本
+            let mut rollback_budget = FrameBudget::new();
+            if let Err(rb_err) = managed.instance.call_on_init(engine, &mut rollback_budget) {
+                tracing::warn!(
+                    "OTA rollback on_init 也失敗: script_id={}, error={:?}",
+                    script_id.0,
+                    rb_err
+                );
+            }
+            return Err(self.wrap_error(init_error, script_id, LifecycleHookName::Init));
+        }
+
+        // 4. 成功：清除 disabled 狀態、重設錯誤計數器
+        managed.state = ScriptState::Active;
+        managed.consecutive_error_count = 0;
+        tracing::info!("OTA replace_script 成功: script_id={}", script_id.0);
+
+        Ok(())
+    }
+
     /// 取得所有腳本的執行狀態（用於監控）
     pub fn script_states(&self) -> Vec<(ScriptId, ScriptState)> {
         self.scripts
