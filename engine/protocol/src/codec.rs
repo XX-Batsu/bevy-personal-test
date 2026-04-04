@@ -123,7 +123,11 @@ mod tests {
         let msg = NetMessage::Ping { timestamp: 0 };
         let frame = encode(&msg).unwrap();
         let truncated = &frame[..frame.len() - 2];
-        assert!(decode(truncated).is_err());
+        // 截斷 frame 應回傳 InsufficientData（payload 長度不足）
+        assert!(matches!(
+            decode(truncated),
+            Err(CodecError::InsufficientData)
+        ));
     }
 
     #[test]

@@ -20,6 +20,9 @@ members = [
     # ── Phase 13 ──
     "engine/protocol",
     "server/gateway",
+    # ── Phase 14 ──
+    "engine/shadow_vm",
+    "server/anti_cheat",
 ]
 
 [workspace.package]

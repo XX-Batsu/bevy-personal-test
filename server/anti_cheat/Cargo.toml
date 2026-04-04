@@ -1,0 +1,8 @@
+[package]
+name = "anti_cheat"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+bridge_types = { path = "../../engine/bridge_types" }
+tracing = "0.1"

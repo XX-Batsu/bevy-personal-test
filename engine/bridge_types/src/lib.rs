@@ -25,6 +25,7 @@ pub mod ecs_mirror;
 pub mod errors;
 pub mod handles;
 pub mod replay;
+pub mod shadow;
 
 pub use bridge_event::*;
 pub use deterministic_value::*;
@@ -33,3 +34,4 @@ pub use ecs_mirror::*;
 pub use errors::*;
 pub use handles::*;
 pub use replay::*;
+pub use shadow::*;

@@ -70,7 +70,7 @@ async fn handle_ws_connection(mut socket: WebSocket) {
             }
             Ok(msg) => {
                 debug!(?msg, "收到 WebSocket 訊息");
-                // Phase 21 僅記錄，訊息分派邏輯延後至 Phase 15
+                // task-21 僅記錄，訊息分派邏輯延後至 Phase 15
             }
             Err(e) => {
                 info!(error = %e, "WebSocket 接收錯誤");
