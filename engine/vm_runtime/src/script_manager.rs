@@ -531,6 +531,56 @@ impl ScriptManager {
     }
 }
 
+use crate::bytecode_loader::{BytecodeLoader, LoadError};
+
+impl ScriptManager {
+    /// 批量載入加密 bytecode 並按 priority 排序後插入 scripts 表
+    ///
+    /// 每個元素為 `(bytecode_bytes, decryption_key)`，共用同一 `verifying_key`。
+    /// 若任一 bytecode 解析失敗則整批中止並回傳錯誤（fail-fast 語意）。
+    ///
+    /// # 排序保證
+    /// scripts 按 priority 升序（0 = 最高優先）載入，
+    /// 確保 on_init 呼叫順序確定性。
+    ///
+    /// # 注意
+    /// 此方法直接將 `ScriptInstance` 以 `Active` 狀態插入，不執行 `on_init`。
+    /// 原因：批量載入時無 `SandboxedEngine` 參照可供執行 on_init；
+    /// `on_init` 將於下一幀 `run_frame()` 時由各 script 的 lifecycle 機制觸發。
+    pub fn load_scripts(
+        &mut self,
+        scripts: Vec<(&[u8], &[u8; 32])>,
+        verifying_key: &[u8; 32],
+    ) -> Result<(), LoadError> {
+        // 1. 解析所有 bytecode（fail-fast）
+        let mut instances: Vec<ScriptInstance> = scripts
+            .into_iter()
+            .map(|(data, key)| BytecodeLoader::load(data, verifying_key, key))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // 2. 按 priority 升序排序（BTreeMap 確定性排序依據）
+        instances.sort_by_key(|s| s.priority);
+
+        // 3. 依序插入（跳過 on_init，直接置入 Active 狀態）
+        for instance in instances {
+            let priority = instance.priority;
+            let id = ScriptId(instance.script_id.clone());
+            // 移除同 ScriptId 的舊實例
+            self.scripts.retain(|(_, sid), _| sid != &id);
+            self.scripts.insert(
+                (priority, id),
+                ManagedScript {
+                    instance,
+                    state: ScriptState::Active,
+                    consecutive_error_count: 0,
+                },
+            );
+        }
+
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

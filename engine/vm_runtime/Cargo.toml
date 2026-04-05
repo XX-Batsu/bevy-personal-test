@@ -4,21 +4,25 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-debug-mode = []
+debug-mode = ["dep:wasm-bindgen"]
 dev-file-watcher = ["debug-mode", "dep:notify"]
 
 [dependencies]
 rhai = { workspace = true }
 tracing = { workspace = true }
 serde = { workspace = true }
+thiserror = { workspace = true }
 bridge_types = { path = "../bridge_types" }
 bytecode_compiler = { path = "../../build/bytecode_compiler" }
 deterministic = { path = "../deterministic" }
+crypto = { path = "../crypto" }
 notify = { version = "6", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 
 [dev-dependencies]
 bincode = { workspace = true }
+bytecode_compiler = { path = "../../build/bytecode_compiler", features = ["debug-mode"] }
+crypto = { path = "../crypto" }
 tempfile = "3"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

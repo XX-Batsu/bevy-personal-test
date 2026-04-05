@@ -30,7 +30,9 @@
 //! let result = engine.execute_with_budget("let y = 3 * 4; y", &mut budget);
 //! ```
 
+pub mod atomic_update;
 pub mod bridge_api;
+pub mod bytecode_loader;
 #[cfg(feature = "debug-mode")]
 pub mod dev_tools;
 pub mod dynamic_convert;
@@ -44,10 +46,12 @@ pub mod sandbox;
 pub mod scope_limiter;
 pub mod script_manager;
 
+pub use atomic_update::{AtomicBatchStatus, AtomicUpdateManager, BATCH_TIMEOUT_FRAMES};
 pub use bridge_api::{
     register_bridge_api, BridgeState, EntityIdAllocator, EventQueue, SharedState,
 };
 pub use bridge_types::ScriptError;
+pub use bytecode_loader::{BytecodeLoader, LoadError as BytecodeLoadError};
 pub use dynamic_convert::{to_deterministic, to_rhai_dynamic};
 pub use fallback::{
     emit_disable_notification, AnimationDefault, DisableReason, ScriptDisabled, ServerPosition,
@@ -67,8 +71,8 @@ pub use performance::{
 
 // Phase 16：OTA 熱更新（無條件公開）
 pub use hot_update::{
-    HotUpdateManager, UpdateAck, UpdateBuffer, UpdateError, OTA_CHUNK_SIZE,
-    OTA_REASSEMBLY_TIMEOUT_US,
+    BatchStatus, HotUpdateManager, MultiScriptFragment, MultiScriptUpdateBatch, UpdateAck,
+    UpdateBuffer, UpdateError, OTA_CHUNK_SIZE, OTA_REASSEMBLY_TIMEOUT_US,
 };
 
 // Phase 16：共用重載型別（debug-mode：native + WASM 皆可用）

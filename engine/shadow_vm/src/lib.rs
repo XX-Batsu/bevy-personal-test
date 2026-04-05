@@ -8,12 +8,16 @@
 //! 全平台模組（native + WASM 均可用）：
 //! `error`、`executor`、`validator`、`scheduler`、`trace_collector`、`in_process`
 
+pub mod backpressure;
+pub mod cleanup;
+pub mod command;
 pub mod error;
 pub mod executor;
 pub mod in_process;
 pub mod scheduler;
 pub mod trace_collector;
 pub mod validator;
+pub mod worker_lifecycle;
 
 #[cfg(test)]
 pub mod test_helpers;
@@ -23,12 +27,18 @@ pub mod client;
 #[cfg(target_arch = "wasm32")]
 pub mod worker;
 
+pub use backpressure::{ShadowRequestQueue, MAX_PENDING_REQUESTS};
+pub use cleanup::CleanupScheduler;
+pub use command::ShadowCommand;
 pub use error::ShadowVmError;
 pub use executor::{ShadowExecutor, ShadowScript};
 pub use in_process::InProcessShadowVm;
 pub use scheduler::SamplingScheduler;
 pub use trace_collector::TraceCollector;
 pub use validator::ShadowValidator;
+pub use worker_lifecycle::{
+    WorkerLifecycle, WorkerState, MAX_RESTARTS_PER_WINDOW, RESTART_WINDOW_FRAMES,
+};
 
 #[cfg(target_arch = "wasm32")]
 pub use client::ShadowVmClient;

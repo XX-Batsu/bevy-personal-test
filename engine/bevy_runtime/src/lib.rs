@@ -5,15 +5,23 @@
 
 pub mod asset_decryption;
 pub mod fixed_update;
+pub mod frame_orchestrator;
 pub mod interpolation;
+pub mod l1_cache;
+pub mod memory_guard;
 pub mod memory_monitor;
 pub mod physics;
+pub mod session_key_bridge;
 
 pub use asset_decryption::{
     AssetDecryptionError, AssetDecryptionPlugin, EncryptedAssetReader, SessionKeyStore,
     SharedKeyStore,
 };
 pub use fixed_update::{FixedTickCounter, FixedUpdatePlugin};
+pub use frame_orchestrator::{
+    bridge_event_flush_system, ecs_mirror_sync_system, script_frame_orchestration, BridgeEvent,
+    LocalBridgeEventQueue, PendingInputs, PendingScriptEvents, ScriptEvent, ScriptInput,
+};
 pub use interpolation::{interpolate_rendering, save_previous_transform, PreviousTransform};
 pub use memory_monitor::{
     MemoryError, MemoryMonitor, MemoryMonitorPlugin, MemoryRegion, RegionGuard, RegionReport,

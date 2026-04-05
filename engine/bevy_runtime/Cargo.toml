@@ -16,6 +16,7 @@ crypto = { path = "../crypto" }
 zeroize = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+rhai = { workspace = true }
 
 [dev-dependencies]
 bridge_types = { path = "../bridge_types" }
