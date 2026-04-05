@@ -17,6 +17,8 @@ hex           = { workspace = true, optional = true }
 [features]
 debug-mode = ["dep:hex"]
 deterministic-replay = []
+integration = []
+nightly-perf = []
 
 [dev-dependencies]
 proptest = { workspace = true }

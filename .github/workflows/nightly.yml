@@ -1,0 +1,77 @@
+name: Nightly
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  performance-test:
+    name: "Stage 4: Performance Tests"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "ci"
+          key: ${{ runner.os }}-rust-${{ hashFiles('rust-toolchain.toml') }}
+
+      - name: 全量 Determinism Replay 測試
+        run: cargo test --features deterministic-replay
+
+      - name: 效能邊界測試（nightly-perf #[ignore]）
+        run: cargo test --features nightly-perf -- --ignored
+        env:
+          RUST_BACKTRACE: 1
+        timeout-minutes: 30
+
+      - name: Benchmark — Shadow VM
+        run: cargo bench --bench shadow_vm
+
+      - name: Benchmark — 加密管線
+        run: cargo bench --bench encryption
+
+      - name: Benchmark — Netcode
+        run: cargo bench --bench netcode
+
+      - name: 安裝 nightly toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: 安裝 cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+
+      - name: Fuzz bytecode_decoder (60s)
+        run: cargo +nightly fuzz run bytecode_decoder -- -max_total_time=60 -max_len=65536 -rss_limit_mb=2048
+
+      - name: Fuzz network_packet (60s)
+        run: cargo +nightly fuzz run network_packet -- -max_total_time=60 -max_len=65536 -rss_limit_mb=2048
+
+      - name: Fuzz asset_decryptor (60s)
+        run: cargo +nightly fuzz run asset_decryptor -- -max_total_time=60 -max_len=1048576 -rss_limit_mb=2048
+
+      - name: Fuzz state_hash (60s)
+        run: cargo +nightly fuzz run state_hash -- -max_total_time=60 -rss_limit_mb=2048
+
+      - name: 上傳 fuzz crash artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-artifacts-${{ github.run_id }}
+          path: fuzz/artifacts/
+          retention-days: 30
+
+      - name: Nightly 失敗通知
+        if: failure()
+        uses: slackapi/slack-github-action@v1
+        with:
+          channel-id: 'ci-alerts'
+          slack-message: |
+            Nightly Stage 4 (Performance) 失敗
+            日期：${{ github.run_started_at }}
+            Run：${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}

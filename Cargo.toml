@@ -27,14 +27,18 @@ members = [
     "build/cfg_mutator",
     "build/asset_encryptor",
     "client/wasm_loader",
+    # ── Phase 19 ──
+    "tools/replay_debugger",
+    "tools/state_inspector",
 ]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
 
-# Feature flags 定義於各 crate 的 [features] 區段（Task 06 實作）。
+# Feature flags 定義於各 crate 的 [features] 區段。
 # 全域 feature 清單：debug-mode（含 7 個子 feature）、single-player。
+# CI/CD 專用 feature：integration、nightly-perf（Phase 19 新增，各 crate 個別定義）。
 # 參考：docs/design/architecture/17-build-strategy/feature-flags.md
 
 [workspace.dependencies]
@@ -102,4 +106,10 @@ bevy_rapier3d = { version = "0.29", default-features = false, features = ["dim3"
 # ── Phase 11: Replay 壓縮 ──
 flate2 = "1"
 hex = "0.4"
+
+# ── JSON ──
+serde_json = "1"
+
+# ── 測試框架 ──
 proptest = "1"
+criterion = { version = "0.5", features = ["html_reports"] }

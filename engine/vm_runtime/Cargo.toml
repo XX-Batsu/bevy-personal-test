@@ -6,6 +6,8 @@ edition = "2021"
 [features]
 debug-mode = ["dep:wasm-bindgen"]
 dev-file-watcher = ["debug-mode", "dep:notify"]
+integration = []
+nightly-perf = []
 
 [dependencies]
 rhai = { workspace = true }

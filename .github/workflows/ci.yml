@@ -1,0 +1,187 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  quick-check:
+    name: "Stage 1: Quick Checks"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "ci"
+          key: ${{ runner.os }}-rust-${{ hashFiles('rust-toolchain.toml') }}
+
+      - name: 格式檢查
+        run: cargo fmt --check
+
+      - name: Clippy 靜態分析
+        run: cargo clippy -- -D warnings
+
+      - name: 編譯檢查
+        run: cargo check --all-targets
+
+      - name: 單元測試
+        run: cargo test
+
+      - name: Slack 失敗通知
+        if: failure() && github.ref == 'refs/heads/main'
+        uses: slackapi/slack-github-action@v1
+        with:
+          channel-id: 'ci-alerts'
+          slack-message: |
+            CI Stage 1 失敗
+            分支：${{ github.ref_name }}
+            提交：${{ github.sha }}
+            Run：${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+
+  wasm-build:
+    name: "Stage 2: WASM Build"
+    needs: quick-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "ci"
+          key: ${{ runner.os }}-rust-${{ hashFiles('rust-toolchain.toml') }}
+
+      - name: 安裝 wasm-opt
+        run: |
+          curl -L https://github.com/WebAssembly/binaryen/releases/download/version_116/binaryen-version_116-x86_64-linux.tar.gz | tar xz
+          echo "$PWD/binaryen-version_116/bin" >> $GITHUB_PATH
+
+      - name: 安裝 wasm-bindgen-cli
+        run: cargo install wasm-bindgen-cli --locked
+
+      - name: WASM Release 建置
+        run: cargo build --target wasm32-unknown-unknown --release
+
+      - name: wasm-opt 優化
+        run: wasm-opt -Oz -o optimized.wasm target/wasm32-unknown-unknown/release/bevy_game.wasm
+
+      - name: wasm-bindgen 產出
+        run: wasm-bindgen --out-dir pkg optimized.wasm
+
+      - name: 上傳 WASM 產物
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm-build
+          path: pkg/
+          retention-days: 1
+
+      - name: Slack 失敗通知
+        if: failure() && github.ref == 'refs/heads/main'
+        uses: slackapi/slack-github-action@v1
+        with:
+          channel-id: 'ci-alerts'
+          slack-message: |
+            CI Stage 2 (WASM Build) 失敗
+            Run：${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+
+  native-integration:
+    name: "Stage 3a: Integration Tests (Native)"
+    needs: quick-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "ci"
+          key: ${{ runner.os }}-rust-${{ hashFiles('rust-toolchain.toml') }}
+
+      - name: 整合測試（Native）
+        run: cargo test --workspace --features integration
+
+      - name: Slack 失敗通知
+        if: failure() && github.ref == 'refs/heads/main'
+        uses: slackapi/slack-github-action@v1
+        with:
+          channel-id: 'ci-alerts'
+          slack-message: |
+            CI Stage 3a (Native Integration) 失敗
+            Run：${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+
+  browser-test:
+    name: "Stage 3b: Integration Tests (Browser)"
+    needs: wasm-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "ci"
+          key: ${{ runner.os }}-rust-${{ hashFiles('rust-toolchain.toml') }}
+
+      - name: 下載 WASM 產物
+        uses: actions/download-artifact@v4
+        with:
+          name: wasm-build
+          path: pkg/
+
+      - name: 快取 Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('package-lock.json') }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 安裝 Playwright
+        run: npm ci
+
+      - name: 安裝 Playwright 瀏覽器
+        run: npx playwright install --with-deps chromium firefox
+
+      - name: 執行 Playwright 測試
+        run: npx playwright test tests/wasm/
+
+      - name: 上傳 Playwright 報告
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Slack 失敗通知
+        if: failure() && github.ref == 'refs/heads/main'
+        uses: slackapi/slack-github-action@v1
+        with:
+          channel-id: 'ci-alerts'
+          slack-message: |
+            CI Stage 3b (Browser Test) 失敗
+            Run：${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}

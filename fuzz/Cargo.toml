@@ -1,0 +1,34 @@
+[package]
+name = "bevy-game-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+bridge_types = { path = "../engine/bridge_types" }
+crypto = { path = "../engine/crypto" }
+state_hash = { path = "../engine/state_hash" }
+
+[[bin]]
+name = "bytecode_decoder"
+path = "fuzz_targets/bytecode_decoder.rs"
+doc = false
+
+[[bin]]
+name = "network_packet"
+path = "fuzz_targets/network_packet.rs"
+doc = false
+
+[[bin]]
+name = "asset_decryptor"
+path = "fuzz_targets/asset_decryptor.rs"
+doc = false
+
+[[bin]]
+name = "state_hash"
+path = "fuzz_targets/state_hash.rs"
+doc = false

@@ -1,0 +1,17 @@
+[package]
+name = "state_inspector"
+version.workspace = true
+edition.workspace = true
+description = "State Inspector CLI — TCP JSON-RPC 伺服器，查詢遊戲狀態"
+
+[[bin]]
+name = "state_inspector"
+path = "src/main.rs"
+
+[dependencies]
+clap = { workspace = true }
+serde = { workspace = true }
+serde_json = "1"
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tokio = { workspace = true }

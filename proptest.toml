@@ -1,0 +1,5 @@
+# Proptest 設定檔
+# Phase 19 定義：每個 property 256 cases
+[default]
+cases = 256
+max_shrink_iters = 100

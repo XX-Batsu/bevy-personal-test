@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2021"
 description = "blake3 state hashing for deterministic validation"
 
+[features]
+integration = []
+
 [dependencies]
 blake3 = { workspace = true }
 deterministic = { path = "../deterministic" }
@@ -11,6 +14,7 @@ bridge_types = { path = "../bridge_types" }
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
+proptest = { workspace = true }
 
 [[bench]]
 name = "state_hash_bench"

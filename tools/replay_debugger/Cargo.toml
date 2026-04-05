@@ -1,0 +1,19 @@
+[package]
+name = "replay_debugger"
+version.workspace = true
+edition.workspace = true
+description = "Replay debugger CLI — 載入 replay 檔案、比對 golden hash、逐幀分析"
+
+[[bin]]
+name = "replay_debugger"
+path = "src/main.rs"
+
+[dependencies]
+clap = { workspace = true }
+flate2 = { workspace = true }
+bincode = { workspace = true }
+serde = { workspace = true }
+blake3 = { workspace = true }
+bridge_types = { path = "../../engine/bridge_types" }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

@@ -3,6 +3,10 @@ name = "shadow_vm"
 version.workspace = true
 edition.workspace = true
 
+[features]
+integration = []
+nightly-perf = []
+
 [dependencies]
 bridge_types = { path = "../bridge_types" }
 deterministic = { path = "../deterministic" }

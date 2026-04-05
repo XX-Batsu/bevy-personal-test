@@ -3,8 +3,14 @@ name = "protocol"
 version.workspace = true
 edition.workspace = true
 
+[features]
+integration = []
+
 [dependencies]
 serde = { workspace = true }
 bincode = { workspace = true }
 bridge_types = { path = "../bridge_types" }
 async-trait = { workspace = true }
+
+[dev-dependencies]
+bincode = { workspace = true }

@@ -3,6 +3,9 @@ name = "vm_bevy_bridge"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+integration = []
+
 [dependencies]
 bevy = { workspace = true }
 bridge_types = { path = "../bridge_types" }

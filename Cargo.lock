@@ -974,12 +974,16 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy_rapier3d",
+ "bincode",
  "bridge_types",
  "crypto",
  "deterministic",
  "rhai",
+ "serde",
  "thiserror 2.0.18",
  "tracing",
+ "tracing-subscriber",
+ "tracing-wasm",
  "vm_bevy_bridge",
  "vm_runtime",
  "zeroize",
@@ -1838,6 +1842,7 @@ name = "deterministic"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "blake3",
  "proptest",
  "serde",
  "softfloat",
@@ -3946,6 +3951,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "prometheus"
+version = "0.13.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d33c28a30771f7f96db69893f78b857f7450d7e0237e9c8fc6427a81bae7ed1"
+dependencies = [
+ "cfg-if",
+ "fnv",
+ "lazy_static",
+ "memchr",
+ "parking_lot",
+ "protobuf",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "proptest"
 version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3963,6 +3983,12 @@ dependencies = [
  "tempfile",
  "unarray",
 ]
+
+[[package]]
+name = "protobuf"
+version = "2.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "106dd99e98437432fed6519dedecfade6a06a73bb7b2a1e019fdd2bee5778d94"
 
 [[package]]
 name = "protocol"
@@ -4273,6 +4299,20 @@ name = "renderdoc-sys"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
+
+[[package]]
+name = "replay_debugger"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "blake3",
+ "bridge_types",
+ "clap",
+ "flate2",
+ "serde",
+ "tracing",
+ "tracing-subscriber",
+]
 
 [[package]]
 name = "replay_engine"
@@ -4813,6 +4853,7 @@ dependencies = [
  "bridge_types",
  "deterministic",
  "netcode",
+ "prometheus",
  "state_hash",
  "tracing",
 ]
@@ -4940,7 +4981,21 @@ version = "0.1.0"
 dependencies = [
  "blake3",
  "bridge_types",
+ "criterion",
  "deterministic",
+ "proptest",
+]
+
+[[package]]
+name = "state_inspector"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -5774,6 +5829,8 @@ dependencies = [
  "getrandom 0.2.17",
  "netcode",
  "protocol",
+ "serde",
+ "serde_json",
  "simulation",
  "thiserror 2.0.18",
  "tracing",
