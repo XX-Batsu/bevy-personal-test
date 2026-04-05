@@ -1,0 +1,18 @@
+[package]
+name = "asset_encryptor"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+plaintext-assets = []  # debug-mode 子 feature：跳過資產加密
+
+[dependencies]
+crypto = { path = "../../engine/crypto" }
+blake3 = "1"
+clap = { version = "4", features = ["derive"] }
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+rand = "0.8"
+anyhow = "1"
+
+[dev-dependencies]
+tempfile = "3"

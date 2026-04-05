@@ -1,0 +1,17 @@
+[package]
+name = "cfg_mutator"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+no-cfg-mutation = []  # debug-mode 子 feature：跳過 CFG mutation
+
+[dependencies]
+blake3 = "1"
+clap = { version = "4", features = ["derive"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+anyhow = "1"
+
+[dev-dependencies]
+serial_test = "3"

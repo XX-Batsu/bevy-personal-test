@@ -1,0 +1,41 @@
+[package]
+name = "wasm_loader"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+debug-mode = [
+    "plaintext-assets",
+    "plaintext-bytecode",
+    "no-cfg-mutation",
+    "no-shadow-vm",
+    "relaxed-validation",
+    "replay-recording",
+    "dev-file-watcher",
+]
+single-player = ["dep:simulation", "dep:bridge_types", "dep:deterministic", "dep:netcode"]
+plaintext-assets = []
+plaintext-bytecode = []
+no-cfg-mutation = []
+no-shadow-vm = []
+relaxed-validation = []
+replay-recording = []
+dev-file-watcher = []
+
+[dependencies]
+wasm-bindgen = "0.2"
+console_error_panic_hook = "0.1"
+crypto = { path = "../../engine/crypto" }
+protocol = { path = "../../engine/protocol" }
+getrandom = { version = "0.2", features = ["js"] }
+tracing = "0.1"
+thiserror = "2"
+bincode = "1"
+zeroize = { version = "1", features = ["derive"] }
+bridge_types = { path = "../../engine/bridge_types", optional = true }
+deterministic = { path = "../../engine/deterministic", optional = true }
+netcode = { path = "../../engine/netcode", optional = true }
+simulation = { path = "../../server/simulation", optional = true }

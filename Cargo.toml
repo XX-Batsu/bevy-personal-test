@@ -23,11 +23,19 @@ members = [
     # ── Phase 14 ──
     "engine/shadow_vm",
     "server/anti_cheat",
+    # ── Phase 17 ──
+    "build/cfg_mutator",
+    "build/asset_encryptor",
+    "client/wasm_loader",
 ]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
+
+# Feature flags 定義於各 crate 的 [features] 區段（Task 06 實作）。
+# 全域 feature 清單：debug-mode（含 7 個子 feature）、single-player。
+# 參考：docs/design/architecture/17-build-strategy/feature-flags.md
 
 [workspace.dependencies]
 # ── 確定性浮點 ──
