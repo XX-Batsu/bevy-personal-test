@@ -1,0 +1,18 @@
+# build/font-chars.txt — Release build 字型子集字元清單
+#
+# 用途：pyftsubset 依此清單從完整 CJK 字型抽出子集，
+#       縮減 WASM binary 體積（完整 ~16 MB → 子集 < 300 KB）。
+#
+# 維護規則：
+#   - 遊戲 UI 每新增一個 CJK 字元，務必同步加入此清單。
+#   - ASCII / Latin 字元不需列入（FiraMono 已內嵌，不走 CJK 字型路徑）。
+#   - 此檔案為純文字，不含 # 開頭的注釋行（pyftsubset --text-file 讀取純字元）。
+#
+# 使用方式（Phase 17 build-release.sh 內自動執行）：
+#   pyftsubset client/js/assets/fonts/NotoSansTC-Regular.ttf \
+#     --text-file=build/font-chars.txt \
+#     --output-file=client/js/assets/fonts/NotoSansTC-Regular.ttf \
+#     --flavor=truetype --no-hinting
+#
+# 目前遊戲使用字元：
+按任意鍵開始

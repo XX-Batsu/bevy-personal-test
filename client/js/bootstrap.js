@@ -7,6 +7,7 @@ import init, {
   wasm_on_shadow_result,
   wasm_on_handshake_timeout,
   wasm_tick,
+  wasm_start_game,
 } from './wasm_loader.js';
 
 let shadowWorker = null;
@@ -19,7 +20,7 @@ let handshakeTimeoutId = null;
  */
 export async function start() {
   // 1. 載入 WASM 模組（wasm-bindgen default export）
-  await init('./wasm_loader_bg.wasm');
+  await init({ module_or_path: './wasm_loader_bg.wasm' });
 
   // 2. Rust 初始化：panic hook → tracing → ECDH keygen
   //    回傳 client X25519 公鑰（32 bytes）
@@ -77,7 +78,9 @@ export function postToShadowWorker(data) {
 
 /**
  * 由 WASM js_start_game_loop() callback 觸發。
- * 切換 loading screen -> game canvas + 啟動 requestAnimationFrame loop。
+ * 切換 loading screen -> game canvas，由 wasm_start_game() 啟動 Bevy App。
+ * Bevy WinitPlugin 在 WASM 環境下自行接管 requestAnimationFrame，
+ * 此處不再手動建立 rAF loop。
  */
 export function startGameLoop() {
   const loading = document.getElementById('loading-screen');
@@ -85,11 +88,7 @@ export function startGameLoop() {
   if (loading) loading.style.display = 'none';
   if (canvas) canvas.style.display = 'block';
 
-  function tick(ts) {
-    wasm_tick(ts);
-    requestAnimationFrame(tick);
-  }
-  requestAnimationFrame(tick);
+  wasm_start_game();
 }
 
 /**
@@ -115,3 +114,10 @@ window.__game.js_retry_handshake = () => {
   transport.sendBinary(wasm_init().buffer);
 };
 window.__game.js_post_to_shadow_worker = (data) => postToShadowWorker(data);
+window.__game.js_show_error = (message) => {
+  console.error('[遊戲錯誤]', message);
+  const loading = document.getElementById('loading-screen');
+  if (loading) loading.style.display = 'block';
+  const text = document.getElementById('loading-text');
+  if (text) text.textContent = `錯誤：${message}`;
+};

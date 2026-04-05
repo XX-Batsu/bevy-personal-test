@@ -1,7 +1,10 @@
 //! BridgePlugin — 整合 flush、EcsMirror 同步、fallback、HandleRegistry sweep。
 
 use bevy::prelude::*;
+#[cfg(not(target_arch = "wasm32"))]
 use deterministic::NativeClock;
+#[cfg(target_arch = "wasm32")]
+use deterministic::WasmClock;
 use vm_runtime::HandleRegistry;
 
 use crate::event_queue::{BridgeDiagnostics, BridgeEntityMap, BridgeEventQueue};
@@ -31,7 +34,10 @@ impl Plugin for BridgePlugin {
         app.init_resource::<SimulationClock>();
         app.init_resource::<EcsMirrorResource>();
         app.insert_resource(self.bridge_state.clone());
+        #[cfg(not(target_arch = "wasm32"))]
         app.insert_resource(ClockResource(Box::new(NativeClock::new())));
+        #[cfg(target_arch = "wasm32")]
+        app.insert_resource(ClockResource(Box::new(WasmClock::new())));
         app.insert_resource(HandleRegistryResource(HandleRegistry::new()));
 
         // ─── FixedUpdate 系統（依賴 GameFixedSet chain 已由 GamePlugin 配置）───

@@ -38,6 +38,7 @@ serde = { workspace = true }
 serde_json = "1"
 zeroize = { version = "1", features = ["derive"] }
 bridge_types = { path = "../../engine/bridge_types" }
+bevy_runtime = { path = "../../engine/bevy_runtime" }
 deterministic = { path = "../../engine/deterministic" }
 netcode = { path = "../../engine/netcode", optional = true }
 simulation = { path = "../../server/simulation", optional = true }

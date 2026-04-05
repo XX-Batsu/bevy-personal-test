@@ -176,7 +176,8 @@ impl RegionGuard {
 
     /// 是否超過總量警告閾值（90%，即 460.8 MB）。
     pub fn is_warn_threshold(&self) -> bool {
-        self.total_usage_bytes() > TOTAL_MEMORY_CAP * 90 / 100
+        // 先除再乘，避免 WASM 32-bit usize 乘法溢位（512MB * 90 > u32::MAX）
+        self.total_usage_bytes() > TOTAL_MEMORY_CAP / 100 * 90
     }
 }
 

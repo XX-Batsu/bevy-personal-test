@@ -17,6 +17,9 @@ keys/
 # 本地開發 server PID
 .server.pid
 
+# 字型資產（由 just download-fonts 下載，不提交至 git；release 使用 pyftsubset 子集版）
+client/js/assets/fonts/
+
 # OS
 .DS_Store
 Thumbs.db

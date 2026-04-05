@@ -104,8 +104,33 @@ prometheus = "0.13"
 
 # ── 遊戲引擎 ──
 bevy = { version = "0.15", default-features = false, features = [
-    "bevy_asset",
-    "bevy_render",
+    # ── 渲染核心 ──
+    "bevy_asset",           # 資產系統
+    "bevy_render",          # 渲染後端
+    "bevy_core_pipeline",   # Camera2d、core render pass
+    "bevy_sprite",          # 2D sprite / Camera2d
+    "bevy_text",            # Text2d
+    "default_font",         # 內嵌 FiraMono 字型（TextFont::default() 所需）
+    # ── 視窗與輸入 ──
+    "bevy_winit",           # WASM canvas 事件迴圈（含 ButtonInput<KeyCode>）
+    "webgl2",               # WASM WebGL2 渲染後端
+    # ── 遊戲邏輯 ──
+    "bevy_state",           # States trait、AppState 狀態機、OnEnter/OnExit
+    "bevy_animation",       # 動畫系統
+    "bevy_scene",           # 場景載入（.scn.ron）
+    # ── UI ──
+    "bevy_ui",              # Bevy UI（HUD、選單、按鈕）
+    "bevy_picking",         # Pointer picking（UI 互動所需）
+    # ── 音效 ──
+    "bevy_audio",           # 音效播放
+    "vorbis",               # OGG/Vorbis 音訊（Web 友善）
+    "wav",                  # WAV 音訊
+    # ── 圖片格式 ──
+    "png",                  # PNG 圖片資產
+    "jpeg",                 # JPEG 圖片資產
+    # ── 開發工具 ──
+    "bevy_gizmos",          # Debug 繪圖（開發期視覺化）
+    "bevy_dev_tools",       # FPS overlay 等開發工具
 ] }
 
 # ── 物理引擎 ──

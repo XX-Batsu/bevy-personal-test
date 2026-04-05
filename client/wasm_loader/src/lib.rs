@@ -7,7 +7,11 @@ pub mod startup;
 #[cfg(feature = "single-player")]
 mod single_player;
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use wasm_bindgen::prelude::*;
+
+/// 防止 wasm_start_game() 重複呼叫。
+static GAME_STARTED: AtomicBool = AtomicBool::new(false);
 
 // ── JS imports（WASM 呼叫 JS）──
 
@@ -97,6 +101,18 @@ pub fn wasm_on_websocket_message(data: &[u8]) {
 #[wasm_bindgen]
 pub fn wasm_on_handshake_timeout() {
     handshake::on_timeout();
+}
+
+/// 建立並啟動 Bevy 歡迎畫面 App。
+/// 只能呼叫一次（由 js_start_game_loop() callback 觸發）；重複呼叫靜默忽略。
+/// WASM 環境：WinitPlugin 接管 rAF，此函式非阻塞返回。
+#[wasm_bindgen]
+pub fn wasm_start_game() {
+    if GAME_STARTED.swap(true, Ordering::SeqCst) {
+        tracing::warn!("wasm_start_game() 已呼叫過，忽略重複呼叫");
+        return;
+    }
+    bevy_runtime::start_welcome_app("#game-canvas");
 }
 
 /// 推進一個 game frame（由 JS requestAnimationFrame 呼叫）。

@@ -59,6 +59,34 @@ if [ ! -f "$ED25519_KEY_FILE" ]; then
   exit 1
 fi
 
+# ── Stage 0: 字型子集化 ──────────────────────────────────────────────
+# 將完整 CJK 字型（~16 MB）縮減為僅含 build/font-chars.txt 字元的子集（< 300 KB）。
+# 必須在 Stage 1 之前執行：字型透過 include_bytes! 在編譯時嵌入 WASM binary。
+# 工具：pyftsubset（pip install fonttools）
+
+echo "=== Stage 0: 字型子集化 ==="
+FONT_SRC="client/js/assets/fonts/NotoSansTC-Regular.ttf"
+FONT_CHARS="build/font-chars.txt"
+
+if [ ! -f "$FONT_SRC" ]; then
+  echo "錯誤：字型檔不存在：$FONT_SRC（執行 just download-fonts）"; exit 1
+fi
+if [ ! -f "$FONT_CHARS" ]; then
+  echo "錯誤：字元清單不存在：$FONT_CHARS"; exit 1
+fi
+if ! command -v pyftsubset &>/dev/null; then
+  echo "錯誤：pyftsubset 未安裝（pip install fonttools）"; exit 1
+fi
+
+FONT_BEFORE=$(wc -c < "$FONT_SRC")
+pyftsubset "$FONT_SRC" \
+  --text-file="$FONT_CHARS" \
+  --output-file="$FONT_SRC" \
+  --flavor=truetype \
+  --no-hinting
+FONT_AFTER=$(wc -c < "$FONT_SRC")
+echo "字型子集化：${FONT_BEFORE} bytes → ${FONT_AFTER} bytes"
+
 # ── Stage 1: 編譯 WASM ───────────────────────────────────────────────
 
 echo "=== Stage 1: 編譯 WASM ==="

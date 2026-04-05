@@ -31,6 +31,8 @@ pub mod soft_vec;
 pub use clock::Clock;
 #[cfg(not(target_arch = "wasm32"))]
 pub use clock::NativeClock;
+#[cfg(target_arch = "wasm32")]
+pub use clock::WasmClock;
 pub use deterministic_rng::DeterministicRng;
 pub use simulation_clock::SimulationClock;
 pub use soft_float::SoftF32;

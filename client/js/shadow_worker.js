@@ -52,7 +52,7 @@ self.onmessage = (event) => {
 };
 
 // 非同步載入 WASM，完成後排出佇列
-init('./wasm_shadow_worker_bg.wasm')
+init({ module_or_path: './wasm_shadow_worker_bg.wasm' })
   .then(() => {
     shadow_worker_setup();
     wasmReady = true;

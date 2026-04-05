@@ -24,6 +24,13 @@ export function wasm_on_shadow_result(data: Uint8Array): void;
 export function wasm_on_websocket_message(data: Uint8Array): void;
 
 /**
+ * 建立並啟動 Bevy 歡迎畫面 App。
+ * 只能呼叫一次（由 js_start_game_loop() callback 觸發）；重複呼叫靜默忽略。
+ * WASM 環境：WinitPlugin 接管 rAF，此函式非阻塞返回。
+ */
+export function wasm_start_game(): void;
+
+/**
  * 推進一個 game frame（由 JS requestAnimationFrame 呼叫）。
  */
 export function wasm_tick(timestamp: number): void;
@@ -36,13 +43,28 @@ export interface InitOutput {
     readonly wasm_on_handshake_timeout: () => void;
     readonly wasm_on_shadow_result: (a: number, b: number) => void;
     readonly wasm_on_websocket_message: (a: number, b: number) => void;
+    readonly wasm_start_game: () => void;
     readonly wasm_tick: (a: number) => void;
-    readonly __wbindgen_exn_store: (a: number) => void;
-    readonly __externref_table_alloc: () => number;
-    readonly __wbindgen_externrefs: WebAssembly.Table;
-    readonly __wbindgen_free: (a: number, b: number, c: number) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h982eed14cf430e42: (a: number, b: number, c: any) => [number, number];
+    readonly wasm_bindgen__convert__closures_____invoke__h43d8cbcd7620786a: (a: number, b: number, c: any, d: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__hbf11878112de8321: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h08d848fcabd95ebf: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__ha3b2e3e6975b995a: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h083ae3e5125011c8: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h65b1dcdf538474dd: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h4005bc30c83f3d30: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h40c69f3b057a1916: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h5e786c18403bebe7: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__hb9a54380b6de4600: (a: number, b: number) => number;
+    readonly wasm_bindgen__convert__closures_____invoke__h05feebdc2d11e6bf: (a: number, b: number) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h5c982496db70eb3e: (a: number, b: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
+    readonly __externref_table_alloc: () => number;
+    readonly __wbindgen_externrefs: WebAssembly.Table;
+    readonly __wbindgen_exn_store: (a: number) => void;
+    readonly __wbindgen_free: (a: number, b: number, c: number) => void;
+    readonly __wbindgen_destroy_closure: (a: number, b: number) => void;
     readonly __externref_table_dealloc: (a: number) => void;
     readonly __wbindgen_start: () => void;
 }

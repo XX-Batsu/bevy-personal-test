@@ -4,6 +4,7 @@
 //! [`GamePlugin`] 須在 `vm_bevy_bridge::BridgePlugin` 之前加入 App。
 
 pub mod asset_decryption;
+pub mod welcome;
 pub mod fixed_update;
 pub mod frame_orchestrator;
 pub mod interpolation;
@@ -15,6 +16,7 @@ pub mod physics;
 pub mod session_key_bridge;
 pub mod version;
 
+pub use welcome::{start_welcome_app, AppState, WelcomePlugin, WelcomeScreen};
 pub use asset_decryption::{
     AssetDecryptionError, AssetDecryptionPlugin, EncryptedAssetReader, SessionKeyStore,
     SharedKeyStore,

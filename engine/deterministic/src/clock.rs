@@ -57,6 +57,42 @@ impl Clock for NativeClock {
     }
 }
 
+/// WASM 平台時間來源
+///
+/// 使用 `js_sys::Date::now()` 作為時間來源（毫秒精度）。
+/// 在 main thread 與 Web Worker 環境中均可使用。
+/// 建構時記錄 epoch，`now_micros()` 回傳自 epoch 起經過的微秒數。
+#[cfg(target_arch = "wasm32")]
+pub struct WasmClock {
+    epoch_ms: f64,
+}
+
+#[cfg(target_arch = "wasm32")]
+impl WasmClock {
+    /// 建立 WasmClock，以當前 Date.now() 為 epoch
+    pub fn new() -> Self {
+        Self {
+            epoch_ms: js_sys::Date::now(),
+        }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+impl Default for WasmClock {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+impl Clock for WasmClock {
+    fn now_micros(&self) -> u64 {
+        let elapsed_ms = js_sys::Date::now() - self.epoch_ms;
+        // Date.now() 精度為毫秒，轉換為微秒（× 1000）
+        (elapsed_ms * 1000.0) as u64
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
