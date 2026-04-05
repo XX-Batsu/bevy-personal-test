@@ -9,7 +9,7 @@ jobs:
   performance-test:
     name: "Stage 4: Performance Tests"
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -44,17 +44,21 @@ jobs:
       - name: 安裝 cargo-fuzz
         run: cargo install cargo-fuzz --locked
 
-      - name: Fuzz bytecode_decoder (60s)
-        run: cargo +nightly fuzz run bytecode_decoder -- -max_total_time=60 -max_len=65536 -rss_limit_mb=2048
+      - name: Fuzz bytecode_decoder (300s)
+        run: cargo +nightly fuzz run bytecode_decoder fuzz/corpus/bytecode_decoder fuzz/seed_corpus/bytecode_decoder -- -max_total_time=300 -max_len=65536 -rss_limit_mb=2048
 
-      - name: Fuzz network_packet (60s)
-        run: cargo +nightly fuzz run network_packet -- -max_total_time=60 -max_len=65536 -rss_limit_mb=2048
+      - name: Fuzz netcode_packet_parser (300s)
+        run: cargo +nightly fuzz run netcode_packet_parser fuzz/corpus/netcode_packet_parser fuzz/seed_corpus/netcode_packet_parser -- -max_total_time=300 -max_len=65536 -rss_limit_mb=2048
 
-      - name: Fuzz asset_decryptor (60s)
-        run: cargo +nightly fuzz run asset_decryptor -- -max_total_time=60 -max_len=1048576 -rss_limit_mb=2048
+      - name: Fuzz asset_decryptor (300s)
+        run: cargo +nightly fuzz run asset_decryptor fuzz/corpus/asset_decryptor fuzz/seed_corpus/asset_decryptor -- -max_total_time=300 -max_len=1048576 -rss_limit_mb=2048
 
-      - name: Fuzz state_hash (60s)
-        run: cargo +nightly fuzz run state_hash -- -max_total_time=60 -rss_limit_mb=2048
+      - name: Fuzz state_hash_calculator (300s)
+        run: cargo +nightly fuzz run state_hash_calculator fuzz/corpus/state_hash_calculator fuzz/seed_corpus/state_hash_calculator -- -max_total_time=300 -rss_limit_mb=2048
+
+      - name: 記憶體穩定性測試（native, Linux jemalloc）
+        run: cargo test -p memory-leak-tests --features nightly-perf --test native_leak_test -- --ignored
+        timeout-minutes: 10
 
       - name: 上傳 fuzz crash artifacts
         if: failure()

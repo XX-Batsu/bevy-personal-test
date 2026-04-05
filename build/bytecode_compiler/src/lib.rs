@@ -18,8 +18,8 @@ pub use format::{compile, load, load_debug};
 
 // Metadata types and constants
 pub use format::{
-    assemble_bytecode, deserialize_metadata, parse_header, BytecodeHeader, AUTH_TAG_SIZE,
-    DEBUG_VERSION_MINOR, FORMAT_VERSION_MAJOR, FORMAT_VERSION_MINOR, HEADER_FIXED_SIZE, MAGIC,
-    NONCE_SIZE, SIGNATURE_SIZE,
+    assemble_bytecode, deserialize_metadata, parse_header, read_metadata, BytecodeHeader,
+    AUTH_TAG_SIZE, DEBUG_VERSION_MINOR, FORMAT_VERSION_MAJOR, FORMAT_VERSION_MINOR,
+    HEADER_FIXED_SIZE, MAGIC, NONCE_SIZE, SIGNATURE_SIZE,
 };
 pub use metadata::ScriptMetadata;

@@ -110,6 +110,15 @@ pub fn parse_header(data: &[u8]) -> Result<BytecodeHeader, FormatError> {
     })
 }
 
+/// 僅讀取明文 metadata header，不需解密
+///
+/// 內部實作：呼叫 parse_header() + deserialize_metadata()
+/// 對齊 file-format.md §5.2 header 佈局
+pub fn read_metadata(data: &[u8]) -> Result<ScriptMetadata, FormatError> {
+    let header = parse_header(data)?;
+    deserialize_metadata(&header)
+}
+
 /// 反序列化 BytecodeHeader 中的 metadata bytes 為 ScriptMetadata
 pub fn deserialize_metadata(header: &BytecodeHeader) -> Result<ScriptMetadata, FormatError> {
     let meta: ScriptMetadata = bincode::deserialize(&header.metadata_bytes)?;

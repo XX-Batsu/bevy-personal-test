@@ -26,6 +26,9 @@ jobs:
       - name: Clippy 靜態分析
         run: cargo clippy -- -D warnings
 
+      - name: 確定性檢查（float + HashMap/HashSet）
+        run: bash tools/check_determinism.sh
+
       - name: 編譯檢查
         run: cargo check --all-targets
 
@@ -114,6 +117,9 @@ jobs:
 
       - name: 整合測試（Native）
         run: cargo test --workspace --features integration
+
+      - name: Golden hash regression
+        run: ./tools/golden_hash.sh verify
 
       - name: Slack 失敗通知
         if: failure() && github.ref == 'refs/heads/main'

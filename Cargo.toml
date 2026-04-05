@@ -24,12 +24,16 @@ members = [
     "engine/shadow_vm",
     "server/anti_cheat",
     # ── Phase 17 ──
+    "build/build_utils",
     "build/cfg_mutator",
     "build/asset_encryptor",
     "client/wasm_loader",
     # ── Phase 19 ──
     "tools/replay_debugger",
     "tools/state_inspector",
+    "tools/vm_disassembler",
+    # ── Phase 20 ──
+    "tests/memory",
 ]
 
 [workspace.package]
@@ -113,3 +117,12 @@ serde_json = "1"
 # ── 測試框架 ──
 proptest = "1"
 criterion = { version = "0.5", features = ["html_reports"] }
+
+# ── Release Profile ──
+# 對齊 docs/design/architecture/17-build-strategy/build-profiles.md
+[profile.release]
+opt-level = 3
+lto = "thin"
+strip = "symbols"
+codegen-units = 1
+panic = "abort"

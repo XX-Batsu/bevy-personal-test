@@ -9,26 +9,33 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-bridge_types = { path = "../engine/bridge_types" }
+bytecode_compiler = { path = "../build/bytecode_compiler" }
+protocol = { path = "../engine/protocol" }
 crypto = { path = "../engine/crypto" }
 state_hash = { path = "../engine/state_hash" }
+bridge_types = { path = "../engine/bridge_types" }
+bincode = "1"
 
 [[bin]]
 name = "bytecode_decoder"
 path = "fuzz_targets/bytecode_decoder.rs"
+test = false
 doc = false
 
 [[bin]]
-name = "network_packet"
-path = "fuzz_targets/network_packet.rs"
+name = "netcode_packet_parser"
+path = "fuzz_targets/netcode_packet_parser.rs"
+test = false
 doc = false
 
 [[bin]]
 name = "asset_decryptor"
 path = "fuzz_targets/asset_decryptor.rs"
+test = false
 doc = false
 
 [[bin]]
-name = "state_hash"
-path = "fuzz_targets/state_hash.rs"
+name = "state_hash_calculator"
+path = "fuzz_targets/state_hash_calculator.rs"
+test = false
 doc = false

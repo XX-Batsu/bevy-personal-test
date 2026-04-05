@@ -25,6 +25,7 @@ set -e  # 任何指令失敗即終止（Stage 3 除外，見 fallback 邏輯）
 # ── 設定 ─────────────────────────────────────────────────────────────
 
 CRATE_NAME="wasm_loader"  # wasm-bindgen 目標 crate
+BUILD_MODE="${BUILD_MODE:-release}"  # debug 模式產生 source map
 AES_KEY_FILE="${AES_KEY_FILE:-keys/aes.key}"
 ED25519_KEY_FILE="${ED25519_KEY_FILE:-keys/ed25519.key}"
 ED25519_PUB_KEY_FILE="${ED25519_PUB_KEY_FILE:-keys/ed25519.pub}"
@@ -150,8 +151,35 @@ else
   echo "警告：公鑰 ${ED25519_PUB_KEY_FILE} 不存在，跳過簽名自驗"
 fi
 
+# ── Stage 5c: Rhai Script 編譯 ──────────────────────────────────────────
+
+echo "=== Stage 5c: Rhai script → .rhai.bc 編譯 ==="
+SCRIPTS_SRC="scripts/rhai"
+SCRIPTS_OUT="${DIST_DIR}/scripts"
+
+if [ -d "${SCRIPTS_SRC}" ]; then
+  mkdir -p "${SCRIPTS_OUT}"
+  SCRIPT_ID=0
+  for rhai_file in "${SCRIPTS_SRC}"/*.rhai; do
+    [ -f "$rhai_file" ] || continue
+    base_name=$(basename "$rhai_file" .rhai)
+    output_file="${SCRIPTS_OUT}/${base_name}.rhai.bc"
+    echo "  編譯 ${rhai_file} → ${output_file}"
+    cargo run -p bytecode_compiler -- compile \
+      "$rhai_file" \
+      "$output_file" \
+      --signing-key "${ED25519_KEY_FILE}" \
+      --encryption-key "${AES_KEY_FILE}" \
+      --script-id "${SCRIPT_ID}" \
+      --priority 0
+    SCRIPT_ID=$((SCRIPT_ID + 1))
+  done
+  echo "完成：${SCRIPT_ID} 個 script 編譯至 ${SCRIPTS_OUT}/"
+else
+  echo "跳過：${SCRIPTS_SRC}/ 目錄不存在"
+fi
+
 # ── Stage 5d: Assets 批次加密 ─────────────────────────────────────────
-# 注意：Stage 5c 預留給 Rhai script compilation（Phase 20）
 
 echo "=== Stage 5d: 資產批次加密 ==="
 if [ -d "assets" ]; then
@@ -164,8 +192,40 @@ fi
 
 # ── Stage 6: 組裝 dist/ ──────────────────────────────────────────────
 
+# ── Source Map 產生（僅 debug build）─────────────────────────────────
+
+if [ "${BUILD_MODE}" = "debug" ]; then
+  echo "=== Source Map 產生（debug build）==="
+
+  WASM_FILE=$(ls "${PKG_DIR}"/*.wasm 2>/dev/null | head -1)
+  if [ -z "$WASM_FILE" ]; then
+    echo "警告：${PKG_DIR}/ 目錄中未找到 .wasm 檔案，跳過 source map"
+  else
+    # 方案 A：wasm-bindgen --keep-debug
+    if wasm-bindgen --out-dir "${PKG_DIR}" --target web --keep-debug \
+        "target/wasm32-unknown-unknown/debug/${CRATE_NAME}.wasm" 2>/dev/null; then
+      echo "Source map 透過 wasm-bindgen --keep-debug 產生"
+    # 方案 B：wasm2map
+    elif command -v wasm2map &>/dev/null; then
+      echo "改用 wasm2map..."
+      for wasm in "${PKG_DIR}"/*.wasm; do
+        if wasm2map "$wasm" -o "${wasm}.map" 2>/dev/null; then
+          echo "  產生：${wasm}.map"
+        else
+          echo "  警告：wasm2map 處理 ${wasm} 失敗"
+        fi
+      done
+    else
+      echo "警告：wasm-bindgen --keep-debug 不支援且 wasm2map 未安裝"
+      echo "  安裝 wasm2map: cargo install wasm2map"
+    fi
+  fi
+fi
+
+# ── Stage 6: 組裝 dist/ ──────────────────────────────────────────────
+
 echo "=== Stage 6: 組裝 dist/ ==="
-mkdir -p "${DIST_DIR}/assets" "${DIST_DIR}/js"
+mkdir -p "${DIST_DIR}/assets" "${DIST_DIR}/js" "${DIST_DIR}/scripts"
 
 # WASM + 簽名
 cp "${PKG_DIR}/${CRATE_NAME}_bg.wasm.enc"     "${DIST_DIR}/"

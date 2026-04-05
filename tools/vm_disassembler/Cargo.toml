@@ -1,0 +1,12 @@
+[package]
+name = "vm_disassembler"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "vm_disassembler"
+path = "src/main.rs"
+
+[dependencies]
+bytecode_compiler = { path = "../../build/bytecode_compiler" }
+clap = { workspace = true }

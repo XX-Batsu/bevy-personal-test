@@ -10,6 +10,9 @@ pub mod rollback;
 pub mod simulation_step;
 pub mod snapshot;
 
+#[cfg(test)]
+pub mod test_utils;
+
 // ── Public API re-exports ──
 pub use connection::{
     ConnectionManager, ConnectionState, FullSyncPacket, ReconnectAction, FROZEN_TIMEOUT_TICKS,
