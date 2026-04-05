@@ -13,7 +13,6 @@
 //! - Worker → 主線程：`ShadowInitAck`（初始化成功）或 `ShadowResponse`（驗證結果）
 
 use bridge_types::{ShadowInit, ShadowInitAck, ShadowResponse, ShadowStatus};
-use wasm_bindgen::prelude::*;
 
 use crate::{executor::ShadowScript, validator::ShadowValidator};
 
@@ -52,7 +51,9 @@ thread_local! {
 /// - bytecode hash 不一致：傳輸過程中 bytecode 損毀
 /// - `ShadowVmError::BytecodeLoadFailed`：bytecode 格式無效
 /// - `ShadowVmError::EngineInitFailed`：Rhai Engine 初始化失敗
-#[wasm_bindgen]
+///
+/// # 注意
+/// `#[wasm_bindgen]` 匯出定義於 `client/wasm_shadow_worker`（cdylib 層），本函數為純 pub。
 pub fn handle_init(data: &[u8]) {
     // 1. 反序列化 ShadowInit
     let init: ShadowInit = match bincode::deserialize(data) {
@@ -111,7 +112,9 @@ pub fn handle_init(data: &[u8]) {
 /// - 輸出：`ShadowResponse`（bincode），透過 postMessage 回傳
 ///
 /// 若 Worker 尚未初始化（Uninitialized 狀態），回傳 Error("Worker 尚未初始化")
-#[wasm_bindgen]
+///
+/// # 注意
+/// `#[wasm_bindgen]` 匯出定義於 `client/wasm_shadow_worker`（cdylib 層），本函數為純 pub。
 pub fn handle_message(data: &[u8]) {
     // 2. 反序列化 ShadowRequest（在進入 thread_local 借用前完成，避免巢狀借用）
     let request: bridge_types::ShadowRequest = match bincode::deserialize(data) {

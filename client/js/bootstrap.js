@@ -1,9 +1,16 @@
 // client/js/bootstrap.js — 應用啟動協調
 
 import * as transport from './transport.js';
-import * as wasmLoader from './wasm_loader.js';
+import init, {
+  wasm_init,
+  wasm_on_websocket_message,
+  wasm_on_shadow_result,
+  wasm_on_handshake_timeout,
+  wasm_tick,
+} from './wasm_loader.js';
 
 let shadowWorker = null;
+let handshakeTimeoutId = null;
 
 /**
  * 啟動應用：WASM init -> WebSocket open -> ECDH 握手 -> 等待 WASM callback
@@ -11,25 +18,39 @@ let shadowWorker = null;
  * @returns {Promise<void>}
  */
 export async function start() {
-  // 1. WASM init
-  await wasmLoader.initWasm('./wasm_loader_bg.wasm');
+  // 1. 載入 WASM 模組（wasm-bindgen default export）
+  await init('./wasm_loader_bg.wasm');
 
-  // 2. WebSocket open
+  // 2. Rust 初始化：panic hook → tracing → ECDH keygen
+  //    回傳 client X25519 公鑰（32 bytes）
+  const publicKeyBytes = wasm_init();
+
+  // 3. WebSocket open
   await transport.connect();
 
-  // 3. 訊息轉發（JS 不區分握手與遊戲訊息，統一轉發至 WASM）
-  transport.onMessage((data) => wasmLoader.onWebSocketMessage(data));
+  // 4. 訊息轉發（JS 不區分握手與遊戲訊息，統一轉發至 WASM）
+  transport.onMessage((data) => wasm_on_websocket_message(data));
 
-  // 4. ECDH 握手 + 5s timeout
-  const wireBytes = wasmLoader.startHandshakeWithTimeout();
+  // 5. 設定握手 timeout（5s）
+  handshakeTimeoutId = setTimeout(() => wasm_on_handshake_timeout(), 5000);
 
-  // 5. 送 client 公鑰至 server
-  transport.sendBinary(wireBytes.buffer);
+  // 6. 送 client 公鑰至 server（觸發 ECDH 握手）
+  transport.sendBinary(publicKeyBytes.buffer);
 
-  // 6. 啟動 Shadow VM Worker
+  // 7. 啟動 Shadow VM Worker
   startShadowWorker();
 
   // game loop 由 WASM 握手成功 callback js_start_game_loop() 觸發
+}
+
+/**
+ * 取消握手 timeout（由 WASM js_cancel_handshake_timeout() callback 呼叫）。
+ */
+export function cancelHandshakeTimeout() {
+  if (handshakeTimeoutId !== null) {
+    clearTimeout(handshakeTimeoutId);
+    handshakeTimeoutId = null;
+  }
 }
 
 /**
@@ -41,7 +62,7 @@ export function startShadowWorker() {
   shadowWorker = new Worker('./shadow_worker.js', { type: 'module' });
   shadowWorker.onmessage = (event) => {
     if (event.data instanceof ArrayBuffer) {
-      wasmLoader.onShadowResult(event.data);
+      wasm_on_shadow_result(new Uint8Array(event.data));
     }
   };
 }
@@ -65,7 +86,7 @@ export function startGameLoop() {
   if (canvas) canvas.style.display = 'block';
 
   function tick(ts) {
-    wasmLoader.wasm_tick(ts);
+    wasm_tick(ts);
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
@@ -86,5 +107,11 @@ export function updateProgress(percent, stageName) {
 // 掛載至 window.__game 供 WASM callback 呼叫
 window.__game = window.__game || {};
 window.__game.js_start_game_loop = startGameLoop;
-window.__game.js_cancel_handshake_timeout = wasmLoader.cancelHandshakeTimeout;
+window.__game.js_cancel_handshake_timeout = cancelHandshakeTimeout;
 window.__game.js_update_progress = updateProgress;
+window.__game.js_send_websocket = (data) => transport.sendBinary(data);
+window.__game.js_retry_handshake = () => {
+  console.warn('[bootstrap] ECDH 握手重試');
+  transport.sendBinary(wasm_init().buffer);
+};
+window.__game.js_post_to_shadow_worker = (data) => postToShadowWorker(data);

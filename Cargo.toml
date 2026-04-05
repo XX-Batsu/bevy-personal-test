@@ -28,6 +28,7 @@ members = [
     "build/cfg_mutator",
     "build/asset_encryptor",
     "client/wasm_loader",
+    "client/wasm_shadow_worker",
     # ── Phase 19 ──
     "tools/replay_debugger",
     "tools/state_inspector",
@@ -84,11 +85,14 @@ thiserror = "2"
 # ── 非同步 ──
 async-trait = "0.1"
 
+# ── HTTP 服務 ──
+tower-http = { version = "0.6", features = ["fs"] }
+
 # ── Phase 13: Server Gateway ──
 axum = "0.8"
 tokio = { version = "1", features = ["full"] }
 tokio-tungstenite = "0.26"
-wtransport = "0.5"
+wtransport = "0.7"
 tower = "0.5"
 
 # ── 日誌 ──

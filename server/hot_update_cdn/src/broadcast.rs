@@ -15,7 +15,7 @@ struct ClientAckState {
 
 /// 廣播 session（模組私有）
 struct BroadcastSession {
-    /// TODO: Phase 15 — session 生命週期管理（長期運行需清理已完成 session）
+    /// 保留 chunks 以便 client 重連時重送（session 完成後由 `remove_session` 清理）
     #[allow(dead_code)]
     chunks: Vec<UpdateChunk>,
     client_states: HashMap<ConnectionId, ClientAckState>,
@@ -121,6 +121,49 @@ impl BroadcastManager {
         } else {
             false
         }
+    }
+
+    /// 移除指定 update_id 的廣播 session，回傳是否成功移除。
+    ///
+    /// 外層 caller 應在 `is_complete(update_id) == true` 後呼叫此方法清理已完成的 session，
+    /// 避免長期運行的 server 累積過多已結束的 session 資料。
+    pub fn remove_session(&mut self, update_id: u64) -> bool {
+        let removed = self.sessions.remove(&update_id).is_some();
+        if removed {
+            tracing::info!("廣播 session update_id={} 已清理", update_id);
+        }
+        removed
+    }
+
+    /// 批次清理所有已完成的 session（所有 client 皆已回應）。
+    ///
+    /// 回傳被清理的 update_id 列表。適合在定時排程中呼叫以防止記憶體洩漏。
+    pub fn cleanup_completed(&mut self) -> Vec<u64> {
+        let completed_ids: Vec<u64> = self
+            .sessions
+            .iter()
+            .filter(|(_, session)| {
+                session
+                    .client_states
+                    .values()
+                    .all(|s| s.status != AckStatus::Unknown)
+            })
+            .map(|(&id, _)| id)
+            .collect();
+
+        for &id in &completed_ids {
+            self.sessions.remove(&id);
+        }
+
+        if !completed_ids.is_empty() {
+            tracing::info!(
+                "批次清理 {} 個已完成的廣播 session：{:?}",
+                completed_ids.len(),
+                completed_ids
+            );
+        }
+
+        completed_ids
     }
 
     /// 回傳指定 update_id 的廣播進度，不存在則 None

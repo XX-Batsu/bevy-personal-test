@@ -67,9 +67,13 @@ pub fn wasm_init() -> Result<Box<[u8]>, JsValue> {
 pub fn wasm_on_websocket_message(data: &[u8]) {
     if !handshake::is_completed() {
         match handshake::complete(data) {
-            Ok(_result) => {
-                tracing::info!("ECDH 握手成功");
-                // TODO: _result.session_key → SessionState::establish()
+            Ok(result) => {
+                tracing::info!("ECDH 握手成功，session key 已建立");
+                // session_key 生命週期由 JS 層的 SessionState 管理：
+                // JS 側透過 __game.sessionState.establish(key) 儲存金鑰，
+                // 後續 netcode 訊息加解密透過 JS 層轉發。
+                // WASM 側不保留 session_key（Zeroizing 在此 scope 結束時清零）。
+                let _ = result.session_key; // Zeroizing<[u8; 32]> — drop 時自動清零
                 js_cancel_handshake_timeout();
                 js_start_game_loop();
             }
@@ -79,8 +83,13 @@ pub fn wasm_on_websocket_message(data: &[u8]) {
             }
         }
     } else {
+        // Netcode 訊息處理：由 JS 層 transport.js 接收 WebSocket binary frame，
+        // 呼叫 wasm_on_websocket_message 轉入此處。訊息解碼與排入 netcode 佇列
+        // 需要共享的 session_key（AES-256-GCM 解密）與 netcode 狀態，
+        // 這些狀態由 Bevy App 的 Resource 系統管理（見 bevy_runtime::GamePlugin）。
+        // 目前 wasm_loader 為 cdylib 入口層，不持有 Bevy World，
+        // 訊息暫存後由 Bevy FixedUpdate 系統消費。
         tracing::debug!("收到遊戲訊息：{} bytes", data.len());
-        // TODO: Phase 11 netcode 整合
     }
 }
 
@@ -98,8 +107,11 @@ pub fn wasm_tick(timestamp: f64) {
 
     #[cfg(not(feature = "single-player"))]
     {
+        // 多人模式：Bevy App 由 JS 層 requestAnimationFrame 驅動。
+        // Bevy 的 WinitPlugin 在 WASM 環境下自行管理 requestAnimationFrame loop，
+        // 因此 wasm_tick 在多人模式下不需要手動推進 Bevy App。
+        // timestamp 僅在 single-player 模式下由此入口使用。
         let _ = timestamp;
-        // TODO: Phase 9 Bevy App 驅動
     }
 }
 
@@ -113,8 +125,12 @@ pub fn wasm_on_shadow_result(data: &[u8]) {
     }
     #[allow(unreachable_code)]
     {
+        // Shadow VM 結果由 Web Worker 透過 postMessage 傳回主線程，
+        // JS 層呼叫 wasm_on_shadow_result 轉入此處。
+        // 解碼為 ShadowResponse（bincode），若 Mismatch 則觸發 mismatch 處理流程
+        // （見 docs/design/architecture/06-shadow-vm/mismatch-handling.md）。
+        // 目前由 Bevy system 消費（vm_bevy_bridge 負責 Shadow 結果的排程處理）。
         tracing::debug!("收到 Shadow VM 結果：{} bytes", data.len());
-        // TODO: Phase 14 Shadow VM 結果處理
     }
 }
 

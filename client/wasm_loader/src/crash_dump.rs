@@ -80,14 +80,15 @@ impl CrashContext {
         use std::panic;
         panic::set_hook(Box::new(|info| {
             let error_message = format!("{info}");
-            // 第一層：嘗試讀取預存 snapshot
+            // 第一層：嘗試讀取預存 snapshot 並透過 WebSocket 發送
+            // 注意：panic hook 中呼叫 js_send_websocket 為 best-effort，
+            // WebSocket 連線可能已中斷或 JS 層可能無法處理。
             if let Some(snapshot) = Self::get_snapshot() {
-                // 嘗試透過 WebSocket 發送（TODO: Phase 11 整合）
-                let _ = snapshot;
                 tracing::error!(
-                    "Panic 發生，已讀取 crash snapshot（{} bytes）",
+                    "Panic 發生，嘗試發送 crash snapshot（{} bytes）",
                     snapshot.len()
                 );
+                crate::js_send_websocket(&snapshot);
             }
             // 第二層：MinimalCrashReport JSON 降級
             let minimal = MinimalCrashReport {
@@ -95,11 +96,11 @@ impl CrashContext {
                 error_message: error_message.clone(),
             };
             if let Ok(json) = serde_json::to_string(&minimal) {
-                let _ = json; // TODO: 發送至 server
-                tracing::error!("降級 crash 報告：{}", minimal.error_message);
+                // 以 JSON bytes 發送降級報告（WebSocket binary frame）
+                crate::js_send_websocket(json.as_bytes());
+                tracing::error!("降級 crash 報告已發送：{}", minimal.error_message);
             }
-            // 第三層：console error fallback
-            // web_sys::console::error_1(&JsValue::from_str(&error_message));
+            // 第三層：console error fallback（tracing 已在上方輸出至 console）
         }));
     }
 

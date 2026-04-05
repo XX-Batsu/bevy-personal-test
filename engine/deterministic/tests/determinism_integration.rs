@@ -135,7 +135,12 @@ fn golden_hash_regression_physics_1000_frames() {
     // 若此測試失敗，表示 deterministic 模組有行為變更
     let hash = simulate_physics(42, 1000);
     // 記錄首次執行的 golden hash（後續不可變更）
-    let golden = hash; // TODO: 替換為實際 golden value
+    // Golden value：seed=42, 1000 幀物理模擬的確定性 blake3 hash。
+    // 此值為首次運行後記錄的 bit-exact 結果，任何 deterministic 模組行為變更都會導致此測試失敗。
+    let golden: [u8; 32] = [
+        200, 127, 248, 212, 183, 101, 55, 13, 180, 157, 27, 7, 196, 221, 27, 155, 253, 168, 135,
+        45, 221, 245, 112, 224, 40, 15, 4, 16, 33, 95, 206, 211,
+    ];
     assert_eq!(
         hash, golden,
         "Golden hash 回歸測試失敗：deterministic 行為已變更"

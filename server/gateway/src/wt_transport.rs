@@ -3,7 +3,7 @@ use protocol::{codec, NetMessage, Transport, TransportError, TransportType};
 use wtransport::Connection;
 
 /// WebTransport Transport 骨架
-/// 底層使用 wtransport 0.5（QUIC/HTTP3）
+/// 底層使用 wtransport 0.7（QUIC/HTTP3）
 ///
 /// 注意：`recv()` 完整實作延後至 Phase 15 Integration Glue，
 /// 本模組僅建立骨架以確保 `cargo build -p gateway` 通過。
@@ -57,7 +57,7 @@ impl Transport for WtTransport {
 
     /// 關閉連線（QUIC varint error code 0 = 正常關閉）
     async fn close(&self) -> Result<(), TransportError> {
-        // wtransport 0.5 close() 為同步方法，無回傳值
+        // wtransport 0.7 close() 為同步方法，無回傳值
         self.connection.close(0u32.into(), "正常關閉".as_bytes());
         Ok(())
     }

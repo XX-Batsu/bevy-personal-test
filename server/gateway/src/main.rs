@@ -13,8 +13,13 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     info!("Gateway server 正在啟動");
 
-    // 載入預設設定（生產環境可改為從環境變數或設定檔讀取）
-    let config = GatewayConfig::default();
+    // 載入預設設定，PORT 環境變數可覆寫監聽 port
+    let mut config = GatewayConfig::default();
+    if let Ok(port) = std::env::var("PORT") {
+        if let Ok(p) = port.parse::<u16>() {
+            config.ws_addr = ([0, 0, 0, 0], p).into();
+        }
+    }
     info!(
         ws_addr = %config.ws_addr,
         wt_addr = %config.wt_addr,

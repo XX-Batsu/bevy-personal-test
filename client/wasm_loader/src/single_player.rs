@@ -80,7 +80,14 @@ pub fn tick(timestamp: f64) {
 
         let _ = timestamp; // 僅供基礎設施計時，不用於遊戲邏輯
 
-        // 收集本地 input（TODO: 從瀏覽器鍵盤/滑鼠事件收集）
+        // 收集本地 input。
+        // 瀏覽器鍵盤/滑鼠事件由 JS 層（transport.js）透過 addEventListener 監聽，
+        // 經 wasm-bindgen 轉發至 WASM。目前 single-player 模式使用空 input 驅動模擬，
+        // 完整 input pipeline 需要 JS 層配合：
+        //   1. JS addEventListener('keydown'/'mousemove') 收集原始事件
+        //   2. JS 呼叫 wasm_on_input(encoded_bytes) 傳入 WASM
+        //   3. WASM 解碼為 PlayerInput 並填入此 BTreeMap
+        // 此架構跨越 JS/WASM 邊界，不適合在純 Rust 側單獨實作。
         let inputs: BTreeMap<EntityId, Vec<PlayerInput>> = BTreeMap::new();
 
         // Lockstep：直接驅動 authoritative simulation

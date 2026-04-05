@@ -111,6 +111,67 @@ pub fn sign_file(file_path: &Path, key_file: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// 生成金鑰組：AES-256 key + Ed25519 key pair。
+///
+/// 輸出三個檔案：
+/// - `{prefix}.aes.key`      — 32 bytes，AES-256-GCM 對稱金鑰
+/// - `{prefix}.ed25519.key`  — 32 bytes，Ed25519 signing seed（私鑰）
+/// - `{prefix}.ed25519.pub`  — 32 bytes，Ed25519 verifying key（公鑰）
+pub fn gen_key(prefix: &Path) -> anyhow::Result<()> {
+    use ed25519_dalek::SigningKey;
+    use rand::RngCore;
+
+    // 建立輸出目錄
+    if let Some(parent) = prefix.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent)
+                .with_context(|| format!("無法建立目錄：{}", parent.display()))?;
+        }
+    }
+
+    // AES-256 key：32 隨機 bytes
+    let mut aes_key = [0u8; 32];
+    rand::rngs::OsRng.fill_bytes(&mut aes_key);
+    let aes_path = {
+        let mut p = prefix.to_path_buf();
+        let name = p.file_name().unwrap_or_default().to_string_lossy().to_string();
+        p.set_file_name(format!("{name}.aes.key"));
+        p
+    };
+    std::fs::write(&aes_path, aes_key)
+        .with_context(|| format!("無法寫入 AES key：{}", aes_path.display()))?;
+    eprintln!("生成：{}", aes_path.display());
+
+    // Ed25519 seed（私鑰）：32 隨機 bytes
+    let mut seed = [0u8; 32];
+    rand::rngs::OsRng.fill_bytes(&mut seed);
+    let signing_key = SigningKey::from_bytes(&seed);
+    let verifying_bytes = signing_key.verifying_key().to_bytes();
+
+    let priv_path = {
+        let mut p = prefix.to_path_buf();
+        let name = p.file_name().unwrap_or_default().to_string_lossy().to_string();
+        p.set_file_name(format!("{name}.ed25519.key"));
+        p
+    };
+    std::fs::write(&priv_path, seed)
+        .with_context(|| format!("無法寫入 Ed25519 私鑰：{}", priv_path.display()))?;
+    eprintln!("生成：{}", priv_path.display());
+
+    let pub_path = {
+        let mut p = prefix.to_path_buf();
+        let name = p.file_name().unwrap_or_default().to_string_lossy().to_string();
+        p.set_file_name(format!("{name}.ed25519.pub"));
+        p
+    };
+    std::fs::write(&pub_path, verifying_bytes)
+        .with_context(|| format!("無法寫入 Ed25519 公鑰：{}", pub_path.display()))?;
+    eprintln!("生成：{}", pub_path.display());
+
+    eprintln!("\n金鑰生成完成。請妥善保管私鑰，勿提交至 git。");
+    Ok(())
+}
+
 /// Ed25519 驗簽。
 pub fn verify_file(file_path: &Path, key_file: &Path, sig_file: &Path) -> anyhow::Result<()> {
     let pub_bytes = load_key_file(key_file)?;

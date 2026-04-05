@@ -1,71 +1,44 @@
-/* @ts-self-types="./wasm_loader.d.ts" */
+/* @ts-self-types="./wasm_shadow_worker.d.ts" */
 
 /**
- * 初始化 WASM 模組：panic hook → tracing → ECDH keygen。
- * 回傳 client X25519 公鑰（32 bytes）。
- * @returns {Uint8Array}
- */
-export function wasm_init() {
-    const ret = wasm.wasm_init();
-    if (ret[3]) {
-        throw takeFromExternrefTable0(ret[2]);
-    }
-    var v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
-    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    return v1;
-}
-
-/**
- * 握手 timeout callback（由 JS setTimeout 5s 後呼叫）。
- */
-export function wasm_on_handshake_timeout() {
-    wasm.wasm_on_handshake_timeout();
-}
-
-/**
- * 轉發 Shadow VM 結果至 WASM。
+ * 接收主線程發送的 ShadowInit（bincode），初始化 ShadowValidator。
+ * 對應 worker.rs §handle_init 完整實作。
  * @param {Uint8Array} data
  */
-export function wasm_on_shadow_result(data) {
+export function handle_init(data) {
     const ptr0 = passArray8ToWasm0(data, wasm.__wbindgen_malloc);
     const len0 = WASM_VECTOR_LEN;
-    wasm.wasm_on_shadow_result(ptr0, len0);
+    wasm.handle_init(ptr0, len0);
 }
 
 /**
- * WebSocket 訊息接收。
- * 握手中→解析 EcdhServerResponse；遊戲中→netcode 佇列。
+ * 接收主線程發送的 ShadowRequest（bincode），執行 hash 驗證並回傳 ShadowResponse。
+ * 對應 worker.rs §handle_message 完整實作。
  * @param {Uint8Array} data
  */
-export function wasm_on_websocket_message(data) {
+export function handle_message(data) {
     const ptr0 = passArray8ToWasm0(data, wasm.__wbindgen_malloc);
     const len0 = WASM_VECTOR_LEN;
-    wasm.wasm_on_websocket_message(ptr0, len0);
+    wasm.handle_message(ptr0, len0);
 }
 
 /**
- * 推進一個 game frame（由 JS requestAnimationFrame 呼叫）。
- * @param {number} timestamp
+ * Shadow Worker 啟動初始化，由 shadow_worker.js 在 WASM init() 後呼叫。
+ * debug-mode 下設定 console_error_panic_hook，確保 Rust panic 可在瀏覽器 console 顯示。
  */
-export function wasm_tick(timestamp) {
-    wasm.wasm_tick(timestamp);
+export function shadow_worker_setup() {
+    wasm.shadow_worker_setup();
 }
 
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
-        __wbg___wbindgen_is_function_49868bde5eb1e745: function(arg0) {
-            const ret = typeof(arg0) === 'function';
-            return ret;
-        },
-        __wbg___wbindgen_is_object_40c5a80572e8f9d3: function(arg0) {
-            const val = arg0;
-            const ret = typeof(val) === 'object' && val !== null;
-            return ret;
-        },
-        __wbg___wbindgen_is_string_b29b5c5a8065ba1a: function(arg0) {
-            const ret = typeof(arg0) === 'string';
-            return ret;
+        __wbg___wbindgen_debug_string_dd5d2d07ce9e6c57: function(arg0, arg1) {
+            const ret = debugString(arg1);
+            const ptr1 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            const len1 = WASM_VECTOR_LEN;
+            getDataViewMemory0().setInt32(arg0 + 4 * 1, len1, true);
+            getDataViewMemory0().setInt32(arg0 + 4 * 0, ptr1, true);
         },
         __wbg___wbindgen_is_undefined_c0cca72b82b86f4d: function(arg0) {
             const ret = arg0 === undefined;
@@ -73,14 +46,6 @@ function __wbg_get_imports() {
         },
         __wbg___wbindgen_throw_81fc77679af83bc6: function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));
-        },
-        __wbg_call_d578befcc3145dee: function() { return handleError(function (arg0, arg1, arg2) {
-            const ret = arg0.call(arg1, arg2);
-            return ret;
-        }, arguments); },
-        __wbg_crypto_38df2bab126b63dc: function(arg0) {
-            const ret = arg0.crypto;
-            return ret;
         },
         __wbg_error_a6fa202b58aa1cd3: function(arg0, arg1) {
             let deferred0_0;
@@ -93,54 +58,45 @@ function __wbg_get_imports() {
                 wasm.__wbindgen_free(deferred0_0, deferred0_1, 1);
             }
         },
-        __wbg_getRandomValues_c44a50d8cfdaebeb: function() { return handleError(function (arg0, arg1) {
-            arg0.getRandomValues(arg1);
+        __wbg_getRandomValues_3f44b700395062e5: function() { return handleError(function (arg0, arg1) {
+            globalThis.crypto.getRandomValues(getArrayU8FromWasm0(arg0, arg1));
         }, arguments); },
-        __wbg_js_cancel_handshake_timeout_05292e8623d603c3: function() {
-            window.__game.js_cancel_handshake_timeout();
-        },
-        __wbg_js_retry_handshake_002634ef60245e71: function() {
-            window.__game.js_retry_handshake();
-        },
-        __wbg_js_show_error_f9031645f3c7ef8e: function(arg0, arg1) {
-            window.__game.js_show_error(getStringFromWasm0(arg0, arg1));
-        },
-        __wbg_js_start_game_loop_e8a2930888e42068: function() {
-            window.__game.js_start_game_loop();
-        },
-        __wbg_length_0c32cb8543c8e4c8: function(arg0) {
-            const ret = arg0.length;
-            return ret;
-        },
-        __wbg_msCrypto_bd5a034af96bcba6: function(arg0) {
-            const ret = arg0.msCrypto;
+        __wbg_instanceof_DedicatedWorkerGlobalScope_507cf7649cc12be1: function(arg0) {
+            let result;
+            try {
+                result = arg0 instanceof DedicatedWorkerGlobalScope;
+            } catch (_) {
+                result = false;
+            }
+            const ret = result;
             return ret;
         },
         __wbg_new_227d7c05414eb861: function() {
             const ret = new Error();
             return ret;
         },
-        __wbg_new_with_length_9cedd08484b73942: function(arg0) {
-            const ret = new Uint8Array(arg0 >>> 0);
+        __wbg_new_from_slice_2580ff33d0d10520: function(arg0, arg1) {
+            const ret = new Uint8Array(getArrayU8FromWasm0(arg0, arg1));
             return ret;
         },
-        __wbg_node_84ea875411254db1: function(arg0) {
-            const ret = arg0.node;
+        __wbg_now_2c44418ca0623664: function(arg0) {
+            const ret = arg0.now();
             return ret;
         },
-        __wbg_process_44c7a14e11e9f69e: function(arg0) {
-            const ret = arg0.process;
+        __wbg_now_e7c6795a7f81e10f: function(arg0) {
+            const ret = arg0.now();
             return ret;
         },
-        __wbg_prototypesetcall_3e05eb9545565046: function(arg0, arg1, arg2) {
-            Uint8Array.prototype.set.call(getArrayU8FromWasm0(arg0, arg1), arg2);
-        },
-        __wbg_randomFillSync_6c25eac9869eb53c: function() { return handleError(function (arg0, arg1) {
-            arg0.randomFillSync(arg1);
-        }, arguments); },
-        __wbg_require_b4edbdcf3e2a1ef0: function() { return handleError(function () {
-            const ret = module.require;
+        __wbg_performance_3fcf6e32a7e1ed0a: function(arg0) {
+            const ret = arg0.performance;
             return ret;
+        },
+        __wbg_performance_6e07b880724c7f9b: function(arg0) {
+            const ret = arg0.performance;
+            return isLikeNone(ret) ? 0 : addToExternrefTable0(ret);
+        },
+        __wbg_postMessage_2b529c5fbb0ae01c: function() { return handleError(function (arg0, arg1) {
+            arg0.postMessage(arg1);
         }, arguments); },
         __wbg_stack_3b0d974bbf31e44f: function(arg0, arg1) {
             const ret = arg1.stack;
@@ -165,24 +121,6 @@ function __wbg_get_imports() {
             const ret = typeof window === 'undefined' ? null : window;
             return isLikeNone(ret) ? 0 : addToExternrefTable0(ret);
         },
-        __wbg_subarray_0f98d3fb634508ad: function(arg0, arg1, arg2) {
-            const ret = arg0.subarray(arg1 >>> 0, arg2 >>> 0);
-            return ret;
-        },
-        __wbg_versions_276b2795b1c6a219: function(arg0) {
-            const ret = arg0.versions;
-            return ret;
-        },
-        __wbindgen_cast_0000000000000001: function(arg0, arg1) {
-            // Cast intrinsic for `Ref(Slice(U8)) -> NamedExternref("Uint8Array")`.
-            const ret = getArrayU8FromWasm0(arg0, arg1);
-            return ret;
-        },
-        __wbindgen_cast_0000000000000002: function(arg0, arg1) {
-            // Cast intrinsic for `Ref(String) -> Externref`.
-            const ret = getStringFromWasm0(arg0, arg1);
-            return ret;
-        },
         __wbindgen_init_externref_table: function() {
             const table = wasm.__wbindgen_externrefs;
             const offset = table.grow(4);
@@ -195,7 +133,7 @@ function __wbg_get_imports() {
     };
     return {
         __proto__: null,
-        "./wasm_loader_bg.js": import0,
+        "./wasm_shadow_worker_bg.js": import0,
     };
 }
 
@@ -203,6 +141,71 @@ function addToExternrefTable0(obj) {
     const idx = wasm.__externref_table_alloc();
     wasm.__wbindgen_externrefs.set(idx, obj);
     return idx;
+}
+
+function debugString(val) {
+    // primitive types
+    const type = typeof val;
+    if (type == 'number' || type == 'boolean' || val == null) {
+        return  `${val}`;
+    }
+    if (type == 'string') {
+        return `"${val}"`;
+    }
+    if (type == 'symbol') {
+        const description = val.description;
+        if (description == null) {
+            return 'Symbol';
+        } else {
+            return `Symbol(${description})`;
+        }
+    }
+    if (type == 'function') {
+        const name = val.name;
+        if (typeof name == 'string' && name.length > 0) {
+            return `Function(${name})`;
+        } else {
+            return 'Function';
+        }
+    }
+    // objects
+    if (Array.isArray(val)) {
+        const length = val.length;
+        let debug = '[';
+        if (length > 0) {
+            debug += debugString(val[0]);
+        }
+        for(let i = 1; i < length; i++) {
+            debug += ', ' + debugString(val[i]);
+        }
+        debug += ']';
+        return debug;
+    }
+    // Test for built-in
+    const builtInMatches = /\[object ([^\]]+)\]/.exec(toString.call(val));
+    let className;
+    if (builtInMatches && builtInMatches.length > 1) {
+        className = builtInMatches[1];
+    } else {
+        // Failed to match the standard '[object ClassName]'
+        return toString.call(val);
+    }
+    if (className == 'Object') {
+        // we're a user defined class or Object
+        // JSON.stringify avoids problems with cycles, and is generally much
+        // easier than looping through ownProperties of `val`.
+        try {
+            return 'Object(' + JSON.stringify(val) + ')';
+        } catch (_) {
+            return 'Object';
+        }
+    }
+    // errors
+    if (val instanceof Error) {
+        return `${val.name}: ${val.message}\n${val.stack}`;
+    }
+    // TODO we could test for more things here, like `Set`s and `Map`s.
+    return className;
 }
 
 function getArrayU8FromWasm0(ptr, len) {
@@ -286,12 +289,6 @@ function passStringToWasm0(arg, malloc, realloc) {
 
     WASM_VECTOR_LEN = offset;
     return ptr;
-}
-
-function takeFromExternrefTable0(idx) {
-    const value = wasm.__wbindgen_externrefs.get(idx);
-    wasm.__externref_table_dealloc(idx);
-    return value;
 }
 
 let cachedTextDecoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: true });
@@ -401,7 +398,7 @@ async function __wbg_init(module_or_path) {
     }
 
     if (module_or_path === undefined) {
-        module_or_path = new URL('wasm_loader_bg.wasm', import.meta.url);
+        module_or_path = new URL('wasm_shadow_worker_bg.wasm', import.meta.url);
     }
     const imports = __wbg_get_imports();
 

@@ -26,7 +26,7 @@ export function connect() {
     };
     ws.onmessage = (event) => {
       if (messageCallback && event.data instanceof ArrayBuffer) {
-        messageCallback(event.data);
+        messageCallback(new Uint8Array(event.data));
       }
     };
     ws.onerror = (err) => reject(err);

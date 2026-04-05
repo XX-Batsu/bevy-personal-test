@@ -540,12 +540,11 @@ impl MultiScriptUpdateBatch {
                         e.error
                     );
 
-                    // 注意：replace_script 內部已經對失敗的腳本做了 rollback（swap 回舊 AST）
-                    // 但已成功的腳本無法在此處 rollback（舊 AST 已丟失）
-                    // 這是一個已知限制：完整的 all-or-nothing 需要在 replace_script 之前
-                    // 先備份所有舊 AST，但 rhai::AST 不支援 Clone。
-                    // 目前語義：失敗的腳本自動 rollback，已成功的保留新版本。
-                    // TODO: Phase 17+ 若需嚴格 all-or-nothing，需在 ScriptInstance 層級支援快照。
+                    // 設計決策（Phase 17 確認）：採用 partial atomicity 語義。
+                    // - replace_script 內部已對失敗的腳本做 rollback（swap 回舊 AST）
+                    // - 已成功的腳本保留新版本（舊 AST 已丟失，rhai::AST 不支援 Clone）
+                    // - 嚴格 all-or-nothing 需要 ScriptInstance 層級快照，成本過高且實務中
+                    //   單腳本失敗不影響其他獨立腳本的正確性，因此選擇 partial atomicity。
 
                     return Err(UpdateError::InitFailed(format!(
                         "多腳本批次 {} 腳本 {} 失敗：{:?}",

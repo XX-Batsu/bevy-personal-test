@@ -46,6 +46,13 @@ enum Commands {
         #[arg(long)]
         sig_file: PathBuf,
     },
+    /// 生成金鑰組：AES-256 key + Ed25519 key pair
+    /// 輸出：<out>.aes.key（32 bytes）、<out>.ed25519.key（seed, 32 bytes）、<out>.ed25519.pub（verifying key, 32 bytes）
+    GenKey {
+        /// 輸出路徑前綴，例如 keys/game → keys/game.aes.key 等
+        #[arg(long, default_value = "keys/game")]
+        out: PathBuf,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -84,6 +91,9 @@ fn main() -> anyhow::Result<()> {
             sig_file,
         } => {
             encrypt::verify_file(&file, &key_file, &sig_file)?;
+        }
+        Commands::GenKey { out } => {
+            encrypt::gen_key(&out)?;
         }
     }
 

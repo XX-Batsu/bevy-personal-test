@@ -24,6 +24,8 @@ pub struct GatewayConfig {
     pub handshake_timeout: Duration,
     /// 斷線後允許重連的超時時間
     pub reconnect_timeout: Duration,
+    /// 前端靜態檔案目錄（本地開發用）
+    pub client_dir: PathBuf,
 }
 
 impl Default for GatewayConfig {
@@ -39,6 +41,7 @@ impl Default for GatewayConfig {
             room_max_players: 8,
             handshake_timeout: Duration::from_secs(5),
             reconnect_timeout: Duration::from_secs(30),
+            client_dir: PathBuf::from("client/js"),
         }
     }
 }

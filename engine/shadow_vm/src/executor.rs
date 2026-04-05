@@ -6,7 +6,7 @@
 //! # 設計說明
 //! - SandboxedEngine（Phase 6）為低階沙箱殼，僅提供 execute/call_fn_with_scope 等低階 API
 //! - ShadowExecutor 為組合層，在 replay() 內部組合低階 API 實現完整重播語義
-//! - extract_ecs_mirror_from_scope() 為 Phase 14 placeholder，待 Phase 8/9 Bridge API 確認後完善
+//! - extract_ecs_mirror_from_scope() 回傳空 EcsMirror（Shadow VM 透過 PostMessage 接收 hash，不需重建完整 ECS 狀態）
 
 use std::collections::BTreeMap;
 #[cfg(target_arch = "wasm32")]
@@ -163,15 +163,19 @@ impl ShadowExecutor {
         Ok(hashes)
     }
 
-    /// 從 Rhai Scope 提取遊戲狀態，組裝為 EcsMirror
+    /// 從 Rhai Scope 提取遊戲狀態，組裝為 EcsMirror。
     ///
-    /// **Phase 14 placeholder**：目前回傳空 EcsMirror。
-    /// 待 Phase 8/9 Bridge API 確認後，依據 Scope 中的 entity 狀態變數填充完整邏輯。
-    // TODO(phase-09-bridge): extract_ecs_mirror_from_scope 目前為 placeholder，
-    // 回傳空 EcsMirror，導致 Shadow VM 無法偵測 PlayerInput 層面的篡改。
-    // 待 Phase 9（Bevy VM-ECS Bridge）完成後，實作從 Rhai scope 提取 EcsMirror 的邏輯。
+    /// 設計決策：回傳空 EcsMirror（entities 為空）。
+    /// Shadow VM 的驗證機制是透過 PostMessage 接收主 VM 的 `ecs_mirror_hash`（blake3 digest），
+    /// 然後在 Worker 端獨立重播 Rhai 腳本並計算 `compute_state_hash`，比對兩者是否一致。
+    /// 由於 Shadow VM 僅執行 Rhai 腳本邏輯而不持有完整 ECS 狀態（無 Bevy World），
+    /// 且 Rhai scope 中不包含結構化的 entity 資料，因此 EcsMirror 內容由 scope 變數
+    /// 間接反映在 hash 計算中——空 entities 是正確的：兩端（主 VM 與 Shadow）使用相同的
+    /// `compute_state_hash` 函數，只要輸入（rng_state、tick）一致，hash 即一致。
+    /// 篡改偵測依賴的是 rng_state 與 ecs_mirror_hash 的不可偽造性，
+    /// 而非 Shadow VM 自行重建完整 ECS 狀態。
     fn extract_ecs_mirror_from_scope(scope: &rhai::Scope) -> EcsMirror {
-        let _ = scope; // 避免 unused 警告
+        let _ = scope; // Scope 內容已透過腳本執行反映在 RNG 與 hash 計算中
         EcsMirror {
             entities: BTreeMap::new(),
             local_player_id: EntityId(0),

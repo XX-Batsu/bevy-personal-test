@@ -1,0 +1,17 @@
+[package]
+name = "wasm_shadow_worker"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[features]
+debug-mode = []
+
+[dependencies]
+shadow_vm = { path = "../../engine/shadow_vm" }
+wasm-bindgen = "0.2"
+console_error_panic_hook = "0.1"
+getrandom = { version = "0.2", features = ["js"] }
+tracing = "0.1"

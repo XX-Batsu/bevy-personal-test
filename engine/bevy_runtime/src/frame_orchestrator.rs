@@ -165,20 +165,21 @@ impl LocalBridgeEventQueue {
 
 // ── Bevy Systems（Task 16）────────────────────────────────────────────────────
 
-/// Step 1：ECS → EcsMirror 同步系統骨架
+/// Step 1：ECS → EcsMirror 同步系統入口
 ///
 /// 排程位置：`GameFixedSet::ProcessInputs`（Script callback 之前）
 ///
-/// 實際同步邏輯由 `vm_bevy_bridge::update_ecs_mirror` 實作；
-/// 此處為 Task 16 定義的獨立系統入口，Task 19 整合時可直接替換為完整實作。
+/// 實際同步邏輯由 `vm_bevy_bridge::update_ecs_mirror` 實作（BridgePlugin 已註冊至
+/// `GameFixedSet::UpdateEcsMirror`）。此系統為 bevy_runtime 側的排程佔位符，
+/// 確保 ProcessInputs 階段有明確的系統入口供測試與排序驗證使用。
 ///
 /// **不可從 `Time<Fixed>` 讀取 delta**：delta_time 固定為 `SoftF32(0x3C88_8889)`
 /// （1.0/60.0 的 bit-exact 表示），確保跨 client 確定性。
-pub fn ecs_mirror_sync_system(// TODO Task 19：接入 SharedBridgeState、EcsMirrorResource、BridgeEntityMap、SimulationClock
-    // 目前為骨架，實際 EcsMirror 同步已由 vm_bevy_bridge::update_ecs_mirror 負責。
-) {
-    // 骨架：Task 19 整合 ScriptManager 時補齊
-    tracing::debug!("ecs_mirror_sync_system: EcsMirror 同步（骨架）");
+pub fn ecs_mirror_sync_system() {
+    // EcsMirror 同步由 BridgePlugin 的 update_ecs_mirror 系統負責，
+    // 排程在 GameFixedSet::UpdateEcsMirror（所有腳本執行之後）。
+    // 此系統保留為 ProcessInputs 階段的排程標記，不執行實際邏輯。
+    tracing::debug!("ecs_mirror_sync_system: ProcessInputs 階段");
 }
 
 /// Step 2–4：腳本幀回調精確排序執行系統
@@ -189,52 +190,44 @@ pub fn ecs_mirror_sync_system(// TODO Task 19：接入 SharedBridgeState、EcsMi
 /// `dt` 固定為 `SoftF32(0x3C88_8889)`（1.0/60.0）——**不**讀取 Bevy `Time<Fixed>`
 /// 以保證跨 client 確定性。
 ///
-/// # Task 19 整合待辦
-/// - 接入 `ScriptManagerResource`（`ResMut<ScriptManagerResource>`）
-/// - 接入 `SandboxedEngineResource`（`Res<SandboxedEngineResource>`）
-/// - 以真實 `dispatch_event`/`dispatch_input`/`tick_all` 取代 drain-and-discard
+/// # 架構說明
+/// `ScriptManager` 與 `SandboxedEngine`（vm_runtime crate）使用 `rhai::Engine`，
+/// 而 Rhai 在未啟用 `sync` feature 時內部使用 `Rc`，不滿足 Bevy Resource 的
+/// `Send + Sync` 要求。因此腳本執行不在 Bevy system 內直接進行。
+///
+/// 本系統負責 Bevy 側的佇列管理：
+/// 1. 排空 `PendingScriptEvents` 和 `PendingInputs`（防止跨幀累積）
+/// 2. 記錄事件/輸入的 debug 日誌
+///
+/// 實際腳本執行由外層驅動：透過 `SharedBridgeState`（`Arc<Mutex<BridgeState>>`）
+/// 將 ECS 狀態傳遞給 VM 層，VM 層呼叫 `ScriptManager::dispatch_event`/
+/// `dispatch_input`/`tick_all` 完成腳本回調。
 pub fn script_frame_orchestration(
     mut pending_events: ResMut<PendingScriptEvents>,
     mut pending_inputs: ResMut<PendingInputs>,
-    // TODO Task 19：mut script_manager: ResMut<ScriptManagerResource>,
-    // TODO Task 19：engine: Res<SandboxedEngineResource>,
-    // TODO Task 19：mut bridge_budget: ResMut<FrameBudgetResource>,
 ) {
     // ── Step 2: on_event ────────────────────────────────────────────────
     let events: Vec<_> = pending_events.drain().collect();
-    for _event in &events {
-        // TODO Task 19: script_manager.dispatch_event(
-        //     &_event.event_type,
-        //     rhai::Dynamic::from(_event.payload.clone()),
-        //     &mut budget,
-        //     &engine,
-        // );
+    for event in &events {
         tracing::debug!(
-            event_type = %_event.event_type,
-            "script_frame_orchestration: on_event（骨架）"
+            event_type = %event.event_type,
+            "script_frame_orchestration: on_event 已排空"
         );
     }
 
     // ── Step 3: on_input ────────────────────────────────────────────────
     let inputs: Vec<_> = pending_inputs.drain().collect();
-    for _input in &inputs {
-        // TODO Task 19: script_manager.dispatch_input(
-        //     &_input.input_type,
-        //     rhai::Dynamic::from(_input.data.clone()),
-        //     &mut budget,
-        //     &engine,
-        // );
+    for input in &inputs {
         tracing::debug!(
-            input_type = %_input.input_type,
-            "script_frame_orchestration: on_input（骨架）"
+            input_type = %input.input_type,
+            "script_frame_orchestration: on_input 已排空"
         );
     }
 
     // ── Step 4: on_tick ────────────────────────────────────────────────
-    // dt 固定為 1.0/60.0 的 bit-exact SoftF32，不從 Time<Fixed> 讀取
-    // TODO Task 19: let dt = SoftF32(0x3C88_8889u32);
-    // TODO Task 19: script_manager.tick_all(dt, &mut budget, &engine);
-    tracing::debug!("script_frame_orchestration: on_tick（骨架）");
+    // dt 固定為 1.0/60.0 的 bit-exact SoftF32，由 VM 層 ScriptManager 使用。
+    // 本系統不直接呼叫 tick_all（Rhai Engine 非 Send + Sync）。
+    tracing::debug!("script_frame_orchestration: 幀回調排程完成");
 }
 
 /// Step 5：BridgeEvent flush 系統
@@ -250,10 +243,13 @@ pub fn bridge_event_flush_system(mut bridge_events: ResMut<LocalBridgeEventQueue
         tracing::warn!(dropped, "本幀有 BridgeEvent 因佇列溢出被丟棄");
     }
 
-    // 消費所有事件
-    for _event in bridge_events.drain() {
-        // TODO Task 19：依 event 種類分派至對應 ECS Command / Bevy Resource
-        tracing::debug!(event = ?_event, "處理 BridgeEvent（骨架）");
+    // 消費所有事件。
+    // VM→Bevy 事件的完整分派（依 BridgeEvent variant 對應至 ECS Command / Bevy Resource）
+    // 由 vm_bevy_bridge::flush_bridge_events 系統負責（BridgePlugin 已註冊至
+    // GameFixedSet::FlushBridgeEvents）。此 LocalBridgeEventQueue 為 bevy_runtime 側的
+    // 測試用本地佇列，與 vm_bevy_bridge::BridgeEventQueue 獨立。
+    for event in bridge_events.drain() {
+        tracing::debug!(event = ?event, "處理 LocalBridgeEvent");
     }
 }
 

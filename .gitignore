@@ -11,6 +11,12 @@ bytecode/
 # Git worktrees
 .worktrees/
 
+# 金鑰（絕對不能提交至 git）
+keys/
+
+# 本地開發 server PID
+.server.pid
+
 # OS
 .DS_Store
 Thumbs.db
