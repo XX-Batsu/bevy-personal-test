@@ -85,6 +85,10 @@ tower = "0.5"
 
 # ── 日誌 ──
 tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# ── 監控 ──
+prometheus = "0.13"
 
 # ── 遊戲引擎 ──
 bevy = { version = "0.15", default-features = false, features = [

@@ -1,6 +1,8 @@
 // client/wasm_loader — WASM 入口點（cdylib）
 
+pub mod crash_dump;
 mod handshake;
+pub mod startup;
 
 #[cfg(feature = "single-player")]
 mod single_player;

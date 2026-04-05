@@ -5,6 +5,7 @@ edition = "2021"
 
 [features]
 plaintext-assets = []
+debug-mode = []
 
 [dependencies]
 bevy = { workspace = true }
@@ -16,7 +17,13 @@ crypto = { path = "../crypto" }
 zeroize = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+serde = { workspace = true }
+bincode = { workspace = true }
 rhai = { workspace = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+tracing-wasm = "0.2"
 
 [dev-dependencies]
 bridge_types = { path = "../bridge_types" }

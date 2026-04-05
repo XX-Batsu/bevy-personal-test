@@ -10,4 +10,8 @@ deterministic = { path = "../deterministic" }
 bridge_types = { path = "../bridge_types" }
 
 [dev-dependencies]
-# 無需 serde/bincode — state_hash 不做序列化
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "state_hash_bench"
+harness = false

@@ -8,10 +8,12 @@ pub mod fixed_update;
 pub mod frame_orchestrator;
 pub mod interpolation;
 pub mod l1_cache;
+pub mod logging;
 pub mod memory_guard;
 pub mod memory_monitor;
 pub mod physics;
 pub mod session_key_bridge;
+pub mod version;
 
 pub use asset_decryption::{
     AssetDecryptionError, AssetDecryptionPlugin, EncryptedAssetReader, SessionKeyStore,
@@ -46,6 +48,10 @@ pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
+        // 0. Tracing 初始化（必須在所有其他初始化之前）
+        logging::init_logging();
+        tracing::info!("遊戲引擎初始化完成");
+
         // 1. FixedUpdate 60Hz + 系統鏈（GameFixedSet 5 set chain）
         app.add_plugins(FixedUpdatePlugin);
 

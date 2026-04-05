@@ -10,3 +10,4 @@ deterministic = { path = "../../engine/deterministic" }
 state_hash    = { path = "../../engine/state_hash" }
 netcode       = { path = "../../engine/netcode" }
 tracing       = { workspace = true }
+prometheus    = { workspace = true }

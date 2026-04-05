@@ -16,7 +16,7 @@ debug-mode = [
     "replay-recording",
     "dev-file-watcher",
 ]
-single-player = ["dep:simulation", "dep:bridge_types", "dep:deterministic", "dep:netcode"]
+single-player = ["dep:simulation", "dep:netcode"]
 plaintext-assets = []
 plaintext-bytecode = []
 no-cfg-mutation = []
@@ -34,8 +34,10 @@ getrandom = { version = "0.2", features = ["js"] }
 tracing = "0.1"
 thiserror = "2"
 bincode = "1"
+serde = { workspace = true }
+serde_json = "1"
 zeroize = { version = "1", features = ["derive"] }
-bridge_types = { path = "../../engine/bridge_types", optional = true }
-deterministic = { path = "../../engine/deterministic", optional = true }
+bridge_types = { path = "../../engine/bridge_types" }
+deterministic = { path = "../../engine/deterministic" }
 netcode = { path = "../../engine/netcode", optional = true }
 simulation = { path = "../../server/simulation", optional = true }
