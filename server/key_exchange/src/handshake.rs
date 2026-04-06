@@ -6,9 +6,10 @@
 use crate::error::KeyExchangeError;
 use crypto::{build_hkdf_salt, derive_session_key, encrypt, EcdhKeyPair, HKDF_INFO};
 use rand_core::{OsRng, RngCore};
+use zeroize::Zeroizing;
 
-/// Session key = AES-256-GCM key（32 bytes）
-pub type SessionKey = [u8; 32];
+/// Session key = AES-256-GCM key（32 bytes，離開 scope 後自動清零）
+pub type SessionKey = Zeroizing<[u8; 32]>;
 
 /// 握手成功後 Server 回傳給 Client 的資料
 pub struct ServerHelloPayload {
@@ -93,7 +94,7 @@ impl HandshakeManager {
             encrypted_session_info,
         };
 
-        Ok((payload, session_key))
+        Ok((payload, Zeroizing::new(session_key)))
     }
 }
 
@@ -140,7 +141,7 @@ mod tests {
             .expect("Client 衍生 session key 應成功");
 
         assert_eq!(
-            server_session_key, client_session_key,
+            *server_session_key, client_session_key,
             "Server 與 Client 衍生的 session key 應相同"
         );
     }
@@ -316,7 +317,7 @@ mod tests {
 
         // 解密 encrypted_session_info
         let decrypted = decrypt(
-            &session_key,
+            &*session_key,
             &payload.nonce,
             &payload.encrypted_session_info,
             &[],
@@ -361,12 +362,26 @@ mod tests {
         }
 
         let result = decrypt(
-            &session_key,
+            &*session_key,
             &payload.nonce,
             &payload.encrypted_session_info,
             &[],
         );
         assert!(result.is_err(), "竄改密文後解密應失敗");
+    }
+
+    /// begin_handshake 回傳 Zeroizing<[u8; 32]>，而非裸 [u8; 32]
+    /// 此測試在 SessionKey = [u8; 32] 時無法編譯（型別不符）
+    #[test]
+    fn session_key_type_is_zeroizing() {
+        let manager = HandshakeManager::new();
+        let client = EcdhKeyPair::generate();
+        let info = make_session_info();
+        let (_, key) = manager
+            .begin_handshake(&client.public_key(), &info)
+            .unwrap();
+        // 若 key 為 Zeroizing<[u8; 32]>，以下型別標注正確；若為 [u8; 32] 則 compile error
+        let _key_ref: &Zeroizing<[u8; 32]> = &key;
     }
 
     /// wire decode 超大 payload（防禦性）

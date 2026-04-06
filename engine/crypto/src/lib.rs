@@ -1,6 +1,7 @@
 pub mod aes;
 pub mod ecdh;
 pub mod error;
+pub mod frame;
 pub mod kdf;
 pub mod signing;
 
@@ -10,6 +11,7 @@ pub use aes::{
 };
 pub use ecdh::EcdhKeyPair;
 pub use error::CryptoError;
+pub use frame::{decrypt_frame, decrypt_frame_aad, encrypt_frame, encrypt_frame_aad, FrameError};
 pub use kdf::{build_hkdf_salt, derive_session_key, HKDF_INFO};
 pub use signing::{verify_signature, SigningKeyPair};
 
@@ -172,5 +174,14 @@ mod tests {
             Err(CryptoError::InvalidPublicKey),
             "all-zero 公鑰應回傳 InvalidPublicKey"
         );
+    }
+
+    /// 驗證 frame 模組 re-export 可直接存取（編譯期保證）
+    #[test]
+    fn test_frame_reexport_availability() {
+        let _: fn(&[u8], &[u8; 32]) -> Result<Vec<u8>, FrameError> = encrypt_frame;
+        let _: fn(&[u8], &[u8; 32]) -> Result<Vec<u8>, FrameError> = decrypt_frame;
+        let _: fn(&[u8], &[u8; 32], u64) -> Result<Vec<u8>, FrameError> = encrypt_frame_aad;
+        let _: fn(&[u8], &[u8; 32], u64) -> Result<Vec<u8>, FrameError> = decrypt_frame_aad;
     }
 }

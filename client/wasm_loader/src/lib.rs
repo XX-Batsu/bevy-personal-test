@@ -7,6 +7,7 @@ pub mod startup;
 #[cfg(feature = "single-player")]
 mod single_player;
 
+use protocol::{codec, NetMessage};
 use std::sync::atomic::{AtomicBool, Ordering};
 use wasm_bindgen::prelude::*;
 
@@ -87,13 +88,15 @@ pub fn wasm_on_websocket_message(data: &[u8]) {
             }
         }
     } else {
-        // Netcode 訊息處理：由 JS 層 transport.js 接收 WebSocket binary frame，
-        // 呼叫 wasm_on_websocket_message 轉入此處。訊息解碼與排入 netcode 佇列
-        // 需要共享的 session_key（AES-256-GCM 解密）與 netcode 狀態，
-        // 這些狀態由 Bevy App 的 Resource 系統管理（見 bevy_runtime::GamePlugin）。
-        // 目前 wasm_loader 為 cdylib 入口層，不持有 Bevy World，
-        // 訊息暫存後由 Bevy FixedUpdate 系統消費。
-        tracing::debug!("收到遊戲訊息：{} bytes", data.len());
+        match handshake::decrypt_incoming(data) {
+            Ok(msg) => {
+                tracing::debug!("收到遊戲訊息（待 Phase 15 實作完整分派）：{:?}", msg);
+                // Phase 15 補齊：排入 Bevy netcode 佇列
+            }
+            Err(e) => {
+                tracing::warn!("遊戲訊息解密失敗：{e}");
+            }
+        }
     }
 }
 
@@ -150,9 +153,58 @@ pub fn wasm_on_shadow_result(data: &[u8]) {
     }
 }
 
+/// 編碼 ClientHello 訊息為 codec wire frame。
+/// 內部核心邏輯（不涉及 JsValue，可在 native 環境測試）。
+///
+/// # Errors
+/// - `InvalidPublicKeyLength` — 輸入不是 32 bytes
+/// - 編碼失敗
+fn encode_client_hello_inner(public_key: &[u8]) -> Result<Vec<u8>, String> {
+    if public_key.len() != 32 {
+        return Err(format!(
+            "ClientHello 公鑰長度錯誤：預期 32 bytes，實際 {} bytes",
+            public_key.len()
+        ));
+    }
+    let mut pk = [0u8; 32];
+    pk.copy_from_slice(public_key);
+    let msg = NetMessage::ClientHello { public_key: pk };
+    codec::encode(&msg).map_err(|e| format!("ClientHello 編碼失敗：{e}"))
+}
+
+/// 將 client X25519 公鑰封裝為標準 codec wire frame（供 bootstrap.js 呼叫）。
+///
+/// `public_key` 必須恰好 32 bytes，否則回傳 Err(JsValue)。
+/// 輸出格式：`[4B LE len] | [bincode(NetMessage::ClientHello { public_key })]`
+#[wasm_bindgen]
+pub fn wasm_encode_client_hello(public_key: &[u8]) -> Result<Box<[u8]>, JsValue> {
+    encode_client_hello_inner(public_key)
+        .map(|frame| frame.into_boxed_slice())
+        .map_err(|e| JsValue::from_str(&e))
+}
+
+/// 加密並送出一則遊戲訊息（整合測試輔助用途）。
+///
+/// `msg_bytes` = `bincode::serialize(&NetMessage)` 的結果（已序列化 bytes）。
+/// 內部：deserialize → encrypt_outgoing → js_send_websocket。
+///
+/// 注意：Bevy system 送訊息應直接呼叫 `handshake::encrypt_outgoing()` 再
+/// `js_send_websocket()`，避免跨 WASM 邊界的額外序列化開銷。
+/// 此 export 主要供整合測試使用；Phase 15 補齊完整 Bevy 分派整合。
+#[wasm_bindgen]
+pub fn wasm_send_message(msg_bytes: &[u8]) -> Result<(), JsValue> {
+    let msg: NetMessage = bincode::deserialize(msg_bytes)
+        .map_err(|e| JsValue::from_str(&format!("訊息反序列化失敗：{e}")))?;
+    let frame = handshake::encrypt_outgoing(&msg)
+        .map_err(|e| JsValue::from_str(&format!("訊息加密失敗：{e}")))?;
+    js_send_websocket(&frame);
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::handshake::HandshakeError;
+    use protocol::{codec, NetMessage};
 
     #[test]
     fn test_handshake_error_display() {
@@ -173,5 +225,26 @@ mod tests {
     #[test]
     fn test_shadow_result_no_panic() {
         super::wasm_on_shadow_result(&[1, 2, 3]);
+    }
+
+    #[test]
+    fn encode_client_hello_codec_format() {
+        let pk = [0x42u8; 32];
+        let frame = super::encode_client_hello_inner(&pk).expect("encode 應成功");
+        // 輸出應可被 codec::decode 解析為 ClientHello
+        let msg = codec::decode(&frame).expect("codec::decode 應成功");
+        assert_eq!(
+            msg,
+            NetMessage::ClientHello {
+                public_key: [0x42u8; 32]
+            },
+            "decode 後應為 ClientHello"
+        );
+    }
+
+    #[test]
+    fn encode_client_hello_wrong_length_fails() {
+        let result = super::encode_client_hello_inner(&[0u8; 16]); // 非 32 bytes
+        assert!(result.is_err(), "非 32 bytes 輸入應回傳 Err");
     }
 }

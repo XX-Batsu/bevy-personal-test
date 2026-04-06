@@ -29,6 +29,8 @@ pub enum HandshakeError {
     },
     #[error("wire format payload 長度不合法：宣告 {declared} bytes，實際可用 {available} bytes")]
     InvalidPayloadLength { declared: usize, available: usize },
+    #[error("握手尚未完成，無法加解密")]
+    NotCompleted,
 }
 
 /// 握手成功結果
@@ -44,6 +46,7 @@ struct InnerState {
     client_public_key: Option<[u8; 32]>,
     completed: bool,
     retry_count: u8,
+    session_key: Option<Zeroizing<[u8; 32]>>,
 }
 
 thread_local! {
@@ -52,6 +55,7 @@ thread_local! {
         client_public_key: None,
         completed: false,
         retry_count: 0,
+        session_key: None,
     }) };
 }
 
@@ -61,6 +65,7 @@ pub fn begin() -> Result<[u8; 32], HandshakeError> {
     STATE.with(|s| {
         let mut state = s.borrow_mut();
         state.completed = false; // retry 時重置
+        state.session_key = None; // 清零並釋放舊 session_key（Zeroizing Drop）
         let pair = EcdhKeyPair::generate();
         let public_key = pair.public_key();
         state.client_public_key = Some(public_key);
@@ -136,11 +141,12 @@ pub fn complete(data: &[u8]) -> Result<HandshakeResult, HandshakeError> {
         let _plaintext = crypto::aes_decrypt(&session_key_bytes, &combined)
             .map_err(|_| HandshakeError::DecryptionFailed)?;
 
+        state.session_key = Some(Zeroizing::new(session_key_bytes));
         state.completed = true;
         tracing::info!("ECDH 握手成功，session key 已建立");
 
         Ok(HandshakeResult {
-            session_key: Zeroizing::new(session_key_bytes),
+            session_key: Zeroizing::new(**state.session_key.as_ref().unwrap()),
         })
     })
 }
@@ -169,6 +175,58 @@ pub fn on_timeout() {
         tracing::error!("ECDH 握手重試失敗，顯示錯誤畫面");
         super::js_show_error("無法建立安全連線，請重新整理頁面");
     }
+}
+
+/// 用 session_key 加密一則 NetMessage，回傳完整 wire frame bytes。
+/// 握手未完成 → Err(HandshakeError::NotCompleted)
+pub fn encrypt_outgoing(msg: &NetMessage) -> Result<Vec<u8>, HandshakeError> {
+    STATE.with(|s| {
+        let state = s.borrow();
+        let key = state
+            .session_key
+            .as_ref()
+            .ok_or(HandshakeError::NotCompleted)?;
+        let plaintext = bincode::serialize(msg).expect("NetMessage 序列化不應失敗");
+        // key: &Zeroizing<[u8; 32]>，deref coercion → &[u8; 32]
+        let frame = crypto::encrypt_frame(&plaintext, key).expect("加密不應失敗（金鑰長度已保證）");
+        Ok(frame)
+    })
+}
+
+/// 用 session_key 解密一個加密 wire frame，回傳 NetMessage。
+/// 握手未完成 → Err(HandshakeError::NotCompleted)
+/// auth tag 驗證失敗 → Err(HandshakeError::DecryptionFailed)
+pub fn decrypt_incoming(data: &[u8]) -> Result<NetMessage, HandshakeError> {
+    STATE.with(|s| {
+        let state = s.borrow();
+        let key = state
+            .session_key
+            .as_ref()
+            .ok_or(HandshakeError::NotCompleted)?;
+        let plaintext = crypto::decrypt_frame(data, key).map_err(|e| match e {
+            crypto::FrameError::AuthFailed => HandshakeError::DecryptionFailed,
+            crypto::FrameError::TooShort { needed, available } => {
+                HandshakeError::InvalidPayloadLength {
+                    declared: needed,
+                    available,
+                }
+            }
+        })?;
+        bincode::deserialize::<NetMessage>(&plaintext)
+            .map_err(|_| HandshakeError::DeserializationFailed)
+    })
+}
+
+#[cfg(test)]
+pub(crate) fn reset_state_for_test() {
+    STATE.with(|s| {
+        let mut state = s.borrow_mut();
+        state.key_pair = None;
+        state.client_public_key = None;
+        state.completed = false;
+        state.retry_count = 0;
+        state.session_key = None;
+    });
 }
 
 #[cfg(test)]
@@ -209,6 +267,7 @@ mod tests {
             state.client_public_key = None;
             state.completed = false;
             state.retry_count = 0;
+            state.session_key = None;
         });
     }
 
@@ -333,5 +392,107 @@ mod tests {
         assert!(msg.contains("server_public_key"));
         assert!(msg.contains("32"));
         assert!(msg.contains("16"));
+    }
+
+    /// 輔助：模擬 server 側，產出合法 ServerHello wire frame 並回傳 server session_key
+    fn make_server_response_frame_with_key(client_pub: &[u8; 32]) -> (Vec<u8>, [u8; 32]) {
+        let server_pair = EcdhKeyPair::generate();
+        let server_pub = server_pair.public_key();
+        let salt = build_hkdf_salt(client_pub, &server_pub);
+        let shared = server_pair.derive_shared_secret(client_pub).unwrap();
+        let server_session_key = derive_session_key(&shared, &salt, HKDF_INFO).unwrap();
+
+        let session_info_placeholder = b"session_info_data";
+        let encrypted = crypto::aes_encrypt(&server_session_key, session_info_placeholder).unwrap();
+        let nonce: [u8; 12] = encrypted[..12].try_into().unwrap();
+        let encrypted_payload = encrypted[12..].to_vec();
+
+        let msg = NetMessage::ServerHello {
+            public_key: server_pub,
+            nonce,
+            encrypted_payload,
+        };
+        let payload = bincode::serialize(&msg).unwrap();
+        let mut frame = (payload.len() as u32).to_le_bytes().to_vec();
+        frame.extend_from_slice(&payload);
+        (frame, server_session_key)
+    }
+
+    #[test]
+    fn encrypt_outgoing_before_handshake_fails() {
+        reset_state();
+        let msg = NetMessage::Ping { timestamp: 0 };
+        let result = encrypt_outgoing(&msg);
+        assert!(
+            matches!(result, Err(HandshakeError::NotCompleted)),
+            "握手前 encrypt_outgoing 應回傳 NotCompleted"
+        );
+    }
+
+    #[test]
+    fn decrypt_incoming_before_handshake_fails() {
+        reset_state();
+        let result = decrypt_incoming(&[0u8; 32]);
+        assert!(
+            matches!(result, Err(HandshakeError::NotCompleted)),
+            "握手前 decrypt_incoming 應回傳 NotCompleted"
+        );
+    }
+
+    #[test]
+    fn session_key_zeroized_on_retry() {
+        reset_state();
+        // 完成第一次握手
+        let pk1 = begin().unwrap();
+        let (frame, _) = make_server_response_frame_with_key(&pk1);
+        complete(&frame).unwrap();
+        assert!(is_completed());
+
+        // retry：begin() 應清零並釋放 session_key
+        let _ = begin().unwrap();
+        // 握手重置後，session_key 應為 None（is_completed = false）
+        assert!(!is_completed());
+        // 此時 encrypt_outgoing 應回傳 NotCompleted（session_key 已清零）
+        let result = encrypt_outgoing(&NetMessage::Ping { timestamp: 0 });
+        assert!(matches!(result, Err(HandshakeError::NotCompleted)));
+    }
+
+    #[test]
+    fn roundtrip_after_handshake() {
+        reset_state();
+        let pk = begin().unwrap();
+        let (frame, _server_key) = make_server_response_frame_with_key(&pk);
+        complete(&frame).unwrap();
+
+        // 加密 → 解密 round-trip
+        let msg = NetMessage::Ping { timestamp: 9999 };
+        let encrypted_frame = encrypt_outgoing(&msg).expect("加密應成功");
+        let decrypted = decrypt_incoming(&encrypted_frame).expect("解密應成功");
+        assert_eq!(decrypted, msg, "round-trip 後訊息應相等");
+    }
+
+    #[test]
+    fn old_key_cannot_decrypt_new_ciphertext() {
+        reset_state();
+        // 第一次握手
+        let pk1 = begin().unwrap();
+        let (frame1, _) = make_server_response_frame_with_key(&pk1);
+        complete(&frame1).unwrap();
+
+        // 用第一次 session_key 加密一則訊息
+        let msg = NetMessage::Ping { timestamp: 42 };
+        let ciphertext_from_key1 = encrypt_outgoing(&msg).expect("key1 加密應成功");
+
+        // Retry：清零 key1，重新握手（key2）
+        let pk2 = begin().unwrap();
+        let (frame2, _) = make_server_response_frame_with_key(&pk2);
+        complete(&frame2).unwrap();
+
+        // 用 key2 解密 key1 加密的密文 → DecryptionFailed（replay 不可能成功）
+        let result = decrypt_incoming(&ciphertext_from_key1);
+        assert!(
+            matches!(result, Err(HandshakeError::DecryptionFailed)),
+            "舊 key 加密的密文不應被新 key 解密成功"
+        );
     }
 }

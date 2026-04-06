@@ -3,6 +3,7 @@
 import * as transport from './transport.js';
 import init, {
   wasm_init,
+  wasm_encode_client_hello,
   wasm_on_websocket_message,
   wasm_on_shadow_result,
   wasm_on_handshake_timeout,
@@ -35,8 +36,9 @@ export async function start() {
   // 5. 設定握手 timeout（5s）
   handshakeTimeoutId = setTimeout(() => wasm_on_handshake_timeout(), 5000);
 
-  // 6. 送 client 公鑰至 server（觸發 ECDH 握手）
-  transport.sendBinary(publicKeyBytes.buffer);
+  // 6. 送 codec-encoded ClientHello 至 server（觸發 ECDH 握手）
+  const clientHelloFrame = wasm_encode_client_hello(publicKeyBytes);
+  transport.sendBinary(clientHelloFrame.buffer);
 
   // 7. 啟動 Shadow VM Worker
   startShadowWorker();
@@ -111,7 +113,10 @@ window.__game.js_update_progress = updateProgress;
 window.__game.js_send_websocket = (data) => transport.sendBinary(data);
 window.__game.js_retry_handshake = () => {
   console.warn('[bootstrap] ECDH 握手重試');
-  transport.sendBinary(wasm_init().buffer);
+  // wasm_init() 內部 set_once() 靜默忽略重複呼叫，屬預期行為
+  const pk = wasm_init();
+  const clientHelloFrame = wasm_encode_client_hello(pk);
+  transport.sendBinary(clientHelloFrame.buffer);
 };
 window.__game.js_post_to_shadow_worker = (data) => postToShadowWorker(data);
 window.__game.js_show_error = (message) => {

@@ -2216,6 +2216,7 @@ dependencies = [
  "hkdf",
  "rand_core 0.6.4",
  "sha2",
+ "thiserror 2.0.18",
  "x25519-dalek",
  "zeroize",
 ]
@@ -2857,6 +2858,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "wtransport",
+ "zeroize",
 ]
 
 [[package]]
