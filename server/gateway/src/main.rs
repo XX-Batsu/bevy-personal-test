@@ -28,7 +28,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     );
 
     // 啟動 WebSocket listener
-    let (addr, shutdown_tx) = listener::start_ws_listener(config).await?;
+    let (addr, shutdown_tx, _registry) = listener::start_ws_listener(config).await?;
     info!(%addr, "WebSocket listener 已就緒，等待連線");
 
     // 等待 Ctrl-C 關閉信號

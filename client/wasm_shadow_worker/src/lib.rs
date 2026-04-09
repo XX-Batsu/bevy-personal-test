@@ -24,12 +24,18 @@ pub fn shadow_worker_setup() {
 /// 對應 worker.rs §handle_init 完整實作。
 #[wasm_bindgen]
 pub fn handle_init(data: &[u8]) {
+    #[cfg(target_arch = "wasm32")]
     shadow_vm::worker::handle_init(data);
+    #[cfg(not(target_arch = "wasm32"))]
+    let _ = data;
 }
 
 /// 接收主線程發送的 ShadowRequest（bincode），執行 hash 驗證並回傳 ShadowResponse。
 /// 對應 worker.rs §handle_message 完整實作。
 #[wasm_bindgen]
 pub fn handle_message(data: &[u8]) {
+    #[cfg(target_arch = "wasm32")]
     shadow_vm::worker::handle_message(data);
+    #[cfg(not(target_arch = "wasm32"))]
+    let _ = data;
 }

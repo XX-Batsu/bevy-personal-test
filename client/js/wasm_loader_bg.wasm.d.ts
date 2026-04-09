@@ -1,10 +1,12 @@
 /* tslint:disable */
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
+export const wasm_encode_client_hello: (a: number, b: number) => [number, number, number, number];
 export const wasm_init: () => [number, number, number, number];
 export const wasm_on_handshake_timeout: () => void;
 export const wasm_on_shadow_result: (a: number, b: number) => void;
 export const wasm_on_websocket_message: (a: number, b: number) => void;
+export const wasm_send_message: (a: number, b: number) => [number, number];
 export const wasm_start_game: () => void;
 export const wasm_tick: (a: number) => void;
 export const wasm_bindgen__convert__closures_____invoke__h982eed14cf430e42: (a: number, b: number, c: any) => [number, number];

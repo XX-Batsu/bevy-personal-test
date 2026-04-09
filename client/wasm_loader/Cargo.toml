@@ -15,6 +15,7 @@ debug-mode = [
     "relaxed-validation",
     "replay-recording",
     "dev-file-watcher",
+    "hot-reload-wasm",
 ]
 single-player = ["dep:simulation", "dep:netcode"]
 plaintext-assets = []
@@ -24,6 +25,7 @@ no-shadow-vm = []
 relaxed-validation = []
 replay-recording = []
 dev-file-watcher = []
+hot-reload-wasm = ["bevy_runtime/hot-reload-wasm"]
 
 [dependencies]
 wasm-bindgen = "0.2"

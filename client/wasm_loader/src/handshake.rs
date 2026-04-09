@@ -47,6 +47,10 @@ struct InnerState {
     completed: bool,
     retry_count: u8,
     session_key: Option<Zeroizing<[u8; 32]>>,
+    /// client → server 方向的訊息序號（防 replay）
+    send_seq: u64,
+    /// server → client 方向的訊息序號（防 replay）
+    recv_seq: u64,
 }
 
 thread_local! {
@@ -56,6 +60,8 @@ thread_local! {
         completed: false,
         retry_count: 0,
         session_key: None,
+        send_seq: 0,
+        recv_seq: 0,
     }) };
 }
 
@@ -66,6 +72,8 @@ pub fn begin() -> Result<[u8; 32], HandshakeError> {
         let mut state = s.borrow_mut();
         state.completed = false; // retry 時重置
         state.session_key = None; // 清零並釋放舊 session_key（Zeroizing Drop）
+        state.send_seq = 0;
+        state.recv_seq = 0;
         let pair = EcdhKeyPair::generate();
         let public_key = pair.public_key();
         state.client_public_key = Some(public_key);
@@ -178,32 +186,38 @@ pub fn on_timeout() {
 }
 
 /// 用 session_key 加密一則 NetMessage，回傳完整 wire frame bytes。
+/// AAD = send_seq（防 replay），每次成功呼叫後 send_seq 遞增。
 /// 握手未完成 → Err(HandshakeError::NotCompleted)
 pub fn encrypt_outgoing(msg: &NetMessage) -> Result<Vec<u8>, HandshakeError> {
     STATE.with(|s| {
-        let state = s.borrow();
+        let mut state = s.borrow_mut();
         let key = state
             .session_key
             .as_ref()
             .ok_or(HandshakeError::NotCompleted)?;
         let plaintext = bincode::serialize(msg).expect("NetMessage 序列化不應失敗");
+        let seq = state.send_seq;
         // key: &Zeroizing<[u8; 32]>，deref coercion → &[u8; 32]
-        let frame = crypto::encrypt_frame(&plaintext, key).expect("加密不應失敗（金鑰長度已保證）");
+        let frame =
+            crypto::encrypt_frame_aad(&plaintext, key, seq).expect("加密不應失敗（金鑰長度已保證）");
+        state.send_seq += 1;
         Ok(frame)
     })
 }
 
 /// 用 session_key 解密一個加密 wire frame，回傳 NetMessage。
+/// AAD = recv_seq（防 replay），解密成功後 recv_seq 遞增；失敗時不遞增（防攻擊者推進計數器）。
 /// 握手未完成 → Err(HandshakeError::NotCompleted)
 /// auth tag 驗證失敗 → Err(HandshakeError::DecryptionFailed)
 pub fn decrypt_incoming(data: &[u8]) -> Result<NetMessage, HandshakeError> {
     STATE.with(|s| {
-        let state = s.borrow();
+        let mut state = s.borrow_mut();
         let key = state
             .session_key
             .as_ref()
             .ok_or(HandshakeError::NotCompleted)?;
-        let plaintext = crypto::decrypt_frame(data, key).map_err(|e| match e {
+        let seq = state.recv_seq;
+        let plaintext = crypto::decrypt_frame_aad(data, key, seq).map_err(|e| match e {
             crypto::FrameError::AuthFailed => HandshakeError::DecryptionFailed,
             crypto::FrameError::TooShort { needed, available } => {
                 HandshakeError::InvalidPayloadLength {
@@ -212,6 +226,8 @@ pub fn decrypt_incoming(data: &[u8]) -> Result<NetMessage, HandshakeError> {
                 }
             }
         })?;
+        // 解密成功才遞增（防攻擊者透過偽造訊息推進 recv_seq）
+        state.recv_seq += 1;
         bincode::deserialize::<NetMessage>(&plaintext)
             .map_err(|_| HandshakeError::DeserializationFailed)
     })
@@ -226,6 +242,8 @@ pub(crate) fn reset_state_for_test() {
         state.completed = false;
         state.retry_count = 0;
         state.session_key = None;
+        state.send_seq = 0;
+        state.recv_seq = 0;
     });
 }
 
@@ -268,6 +286,8 @@ mod tests {
             state.completed = false;
             state.retry_count = 0;
             state.session_key = None;
+            state.send_seq = 0;
+            state.recv_seq = 0;
         });
     }
 

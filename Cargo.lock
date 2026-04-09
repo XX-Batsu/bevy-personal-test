@@ -357,6 +357,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "asset_manifest"
+version = "0.1.0"
+dependencies = [
+ "proptest",
+ "ron",
+ "serde",
+ "thiserror 2.0.18",
+ "tracing",
+]
+
+[[package]]
 name = "async-broadcast"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1191,15 +1202,20 @@ dependencies = [
 name = "bevy_runtime"
 version = "0.1.0"
 dependencies = [
+ "asset_manifest",
  "bevy",
  "bevy_rapier3d",
  "bincode",
  "bridge_types",
+ "crossbeam-channel",
  "crypto",
  "deterministic",
  "js-sys",
+ "notify",
  "rhai",
  "serde",
+ "serde_json",
+ "tempfile",
  "thiserror 2.0.18",
  "tracing",
  "tracing-subscriber",
@@ -1207,6 +1223,7 @@ dependencies = [
  "vm_bevy_bridge",
  "vm_runtime",
  "wasm-bindgen",
+ "web-sys",
  "zeroize",
 ]
 
@@ -3822,6 +3839,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "manifest-gen"
+version = "0.1.0"
+dependencies = [
+ "asset_manifest",
+ "blake3",
+ "clap",
+ "ron",
+ "serde",
+ "tracing",
+ "tracing-subscriber",
+ "walkdir",
+]
+
+[[package]]
 name = "matchers"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4629,6 +4660,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7bb71e1b3fa6ca1c61f383464aaf2bb0e2f8e772a1f01d486832464de363b951"
 dependencies = [
  "num-traits",
+]
+
+[[package]]
+name = "ota"
+version = "0.1.0"
+dependencies = [
+ "asset_manifest",
+ "serde",
+ "thiserror 2.0.18",
+ "tracing",
 ]
 
 [[package]]

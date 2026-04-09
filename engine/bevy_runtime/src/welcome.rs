@@ -43,17 +43,16 @@ fn spawn_welcome_screen(
 
     // WASM：字型 include_bytes! 編入 binary，零 HTTP 請求。
     // Native/測試：AssetServer 從檔案系統載入（MinimalPlugins 下 fallback default handle）。
-    let cjk_font = load_cjk_font(
-        asset_server.as_deref(),
-        font_assets.as_deref_mut(),
-    );
+    let cjk_font = load_cjk_font(asset_server.as_deref(), font_assets.as_deref_mut());
 
     // Camera2d 固定 720 world units 高（對應 16:9 → 1280 wide）。
     // ScalingMode::FixedVertical 確保：在任何視窗尺寸下，文字都佔畫面相同比例。
     commands.spawn((
         Camera2d,
         Projection::Orthographic(OrthographicProjection {
-            scaling_mode: ScalingMode::FixedVertical { viewport_height: 720.0 },
+            scaling_mode: ScalingMode::FixedVertical {
+                viewport_height: 720.0,
+            },
             ..OrthographicProjection::default_2d()
         }),
         WelcomeScreen,
@@ -92,7 +91,7 @@ fn spawn_welcome_screen(
 /// - native/測試：AssetServer 從 `assets/fonts/` 載入（`Assets<Font>` 不存在時 fallback default）
 fn load_cjk_font(
     _asset_server: Option<&AssetServer>,
-    font_assets: Option<&mut Assets<Font>>,
+    #[allow(unused_variables)] font_assets: Option<&mut Assets<Font>>,
 ) -> Handle<Font> {
     #[cfg(target_arch = "wasm32")]
     {
@@ -183,7 +182,10 @@ mod tests {
 
         let mut q = app.world_mut().query::<&WelcomeScreen>();
         let count = q.iter(app.world()).count();
-        assert_eq!(count, 3, "應生成 Camera2d + 標題 + 提示共 3 個 WelcomeScreen entity");
+        assert_eq!(
+            count, 3,
+            "應生成 Camera2d + 標題 + 提示共 3 個 WelcomeScreen entity"
+        );
     }
 
     /// OnExit(Welcome) 應清除所有 WelcomeScreen entity。

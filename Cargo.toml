@@ -1,5 +1,6 @@
 [workspace]
 resolver = "2"
+exclude = ["tools/dev-asset-server"]
 members = [
     "engine/deterministic",
     "engine/bridge_types",
@@ -8,6 +9,7 @@ members = [
     "engine/vm_runtime",
     "build/bytecode_compiler",
     "engine/bevy_runtime",
+    "engine/asset_manifest",
     "engine/vm_bevy_bridge",
     # ── Phase 11 ──
     "engine/netcode",
@@ -29,12 +31,16 @@ members = [
     "build/asset_encryptor",
     "client/wasm_loader",
     "client/wasm_shadow_worker",
+    # ── Asset Pipeline ──
+    "tools/manifest-gen",
     # ── Phase 19 ──
     "tools/replay_debugger",
     "tools/state_inspector",
     "tools/vm_disassembler",
     # ── Phase 20 ──
     "tests/memory",
+    # ── OTA ──
+    "engine/ota",
 ]
 
 [workspace.package]
@@ -63,6 +69,14 @@ blake3 = "1"
 # ── 序列化 ──
 bincode = "1"
 serde = { version = "1", features = ["derive"] }
+ron = "0.8"
+
+# ── 素材 Manifest ──
+walkdir = "2"
+
+# ── 素材熱載入 ──
+notify = "6"
+crossbeam-channel = "0.5"
 
 # ── 加密 ──
 x25519-dalek = { version = "2", features = ["static_secrets"] }
@@ -146,6 +160,7 @@ serde_json = "1"
 # ── 測試框架 ──
 proptest = "1"
 criterion = { version = "0.5", features = ["html_reports"] }
+tempfile = "3"
 
 # ── Release Profile ──
 # 對齊 docs/design/architecture/17-build-strategy/build-profiles.md

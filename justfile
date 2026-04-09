@@ -6,8 +6,8 @@ port := "7777"
 default:
     @just --list
 
-# 完整重建並重啟 server
-dev: build bindgen build-shadow bindgen-shadow build-server serve
+# 完整重建並重啟 server（含 dev-asset-server）
+dev: build bindgen build-shadow bindgen-shadow build-server serve start-dev-assets
 
 # 純重啟 server（不重新編譯）
 serve: stop
@@ -16,8 +16,8 @@ serve: stop
     echo $! > .server.pid
     echo "Server 啟動於 http://localhost:{{port}}"
 
-# 停止 server
-stop:
+# 停止 server（含 dev-asset-server）
+stop: stop-dev-assets
     #!/usr/bin/env zsh
     if [ -f .server.pid ]; then
         kill $(cat .server.pid) 2>/dev/null || true
@@ -97,3 +97,41 @@ download-fonts:
     echo "  https://fonts.google.com/noto/specimen/Noto+Sans+TC"
     echo "  → 解壓後將 NotoSansTC-Regular.ttf 放至 client/js/assets/fonts/"
     exit 1
+
+# Native 開發模式（桌面視窗 + 素材熱載入 + 自動 manifest）
+# 關閉視窗或 Ctrl+C 後自動清理 dev-asset-server
+dev-native: manifest start-dev-assets
+    #!/usr/bin/env zsh
+    cleanup() { just stop-dev-assets; }
+    trap cleanup INT TERM EXIT
+    cargo run --package bevy_runtime --example native_dev --features "hot-reload-native,debug-mode" || true
+
+# ── 素材匯入鏈 ──
+
+# 產生素材 manifest（手動觸發）
+manifest:
+    cargo run --package manifest-gen -- --assets-dir assets/ --output assets/manifest.ron
+
+# 驗證 manifest 完整性（CI 用）
+manifest-check:
+    cargo run --package manifest-gen -- --assets-dir assets/ --verify assets/manifest.ron
+
+# 開發模式：前景啟動 dev asset server（HTTP + WS + 自動 manifest-gen）
+dev-assets port="8081":
+    cd tools/dev-asset-server && cargo run -- --assets-dir {{justfile_directory()}}/assets/ --port {{port}}
+
+# 背景啟動 dev-asset-server（just dev 呼叫）
+start-dev-assets port="8081":
+    #!/usr/bin/env zsh
+    cd tools/dev-asset-server && cargo run -- --assets-dir {{justfile_directory()}}/assets/ --port {{port}} &
+    echo $! > {{justfile_directory()}}/.dev-assets.pid
+    echo "Dev Asset Server 啟動於 http://localhost:{{port}}"
+
+# 停止 dev-asset-server
+stop-dev-assets:
+    #!/usr/bin/env zsh
+    if [ -f .dev-assets.pid ]; then
+        kill $(cat .dev-assets.pid) 2>/dev/null || true
+        rm .dev-assets.pid
+        echo "Dev Asset Server 已停止"
+    fi

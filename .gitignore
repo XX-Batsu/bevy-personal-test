@@ -29,3 +29,6 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# 素材 manifest（build artifact，由 manifest-gen 產生）
+assets/manifest.ron

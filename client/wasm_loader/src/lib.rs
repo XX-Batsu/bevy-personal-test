@@ -74,11 +74,10 @@ pub fn wasm_on_websocket_message(data: &[u8]) {
         match handshake::complete(data) {
             Ok(result) => {
                 tracing::info!("ECDH 握手成功，session key 已建立");
-                // session_key 生命週期由 JS 層的 SessionState 管理：
-                // JS 側透過 __game.sessionState.establish(key) 儲存金鑰，
-                // 後續 netcode 訊息加解密透過 JS 層轉發。
-                // WASM 側不保留 session_key（Zeroizing 在此 scope 結束時清零）。
-                let _ = result.session_key; // Zeroizing<[u8; 32]> — drop 時自動清零
+                // session_key 已儲存於 handshake::STATE thread-local（InnerState.session_key）。
+                // 後續加解密透過 encrypt_outgoing/decrypt_incoming 存取 thread-local 金鑰。
+                // HandshakeResult.session_key 為額外副本，此處顯式 drop 以觸發 Zeroizing 清零。
+                drop(result.session_key);
                 js_cancel_handshake_timeout();
                 js_start_game_loop();
             }

@@ -2,6 +2,14 @@
 /* eslint-disable */
 
 /**
+ * 將 client X25519 公鑰封裝為標準 codec wire frame（供 bootstrap.js 呼叫）。
+ *
+ * `public_key` 必須恰好 32 bytes，否則回傳 Err(JsValue)。
+ * 輸出格式：`[4B LE len] | [bincode(NetMessage::ClientHello { public_key })]`
+ */
+export function wasm_encode_client_hello(public_key: Uint8Array): Uint8Array;
+
+/**
  * 初始化 WASM 模組：panic hook → tracing → ECDH keygen。
  * 回傳 client X25519 公鑰（32 bytes）。
  */
@@ -24,6 +32,18 @@ export function wasm_on_shadow_result(data: Uint8Array): void;
 export function wasm_on_websocket_message(data: Uint8Array): void;
 
 /**
+ * 加密並送出一則遊戲訊息（整合測試輔助用途）。
+ *
+ * `msg_bytes` = `bincode::serialize(&NetMessage)` 的結果（已序列化 bytes）。
+ * 內部：deserialize → encrypt_outgoing → js_send_websocket。
+ *
+ * 注意：Bevy system 送訊息應直接呼叫 `handshake::encrypt_outgoing()` 再
+ * `js_send_websocket()`，避免跨 WASM 邊界的額外序列化開銷。
+ * 此 export 主要供整合測試使用；Phase 15 補齊完整 Bevy 分派整合。
+ */
+export function wasm_send_message(msg_bytes: Uint8Array): void;
+
+/**
  * 建立並啟動 Bevy 歡迎畫面 App。
  * 只能呼叫一次（由 js_start_game_loop() callback 觸發）；重複呼叫靜默忽略。
  * WASM 環境：WinitPlugin 接管 rAF，此函式非阻塞返回。
@@ -39,10 +59,12 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
+    readonly wasm_encode_client_hello: (a: number, b: number) => [number, number, number, number];
     readonly wasm_init: () => [number, number, number, number];
     readonly wasm_on_handshake_timeout: () => void;
     readonly wasm_on_shadow_result: (a: number, b: number) => void;
     readonly wasm_on_websocket_message: (a: number, b: number) => void;
+    readonly wasm_send_message: (a: number, b: number) => [number, number];
     readonly wasm_start_game: () => void;
     readonly wasm_tick: (a: number) => void;
     readonly wasm_bindgen__convert__closures_____invoke__h982eed14cf430e42: (a: number, b: number, c: any) => [number, number];
