@@ -7,11 +7,12 @@ use bevy::prelude::*;
 
 /// FixedUpdate 系統鏈中的系統排序標籤。
 ///
-/// 五個 set 以 `.chain()` 強制依序執行：
-/// `ProcessInputs → RunScripts → FlushBridgeEvents → UpdateEcsMirror → ComputeStateHash`
+/// 六個 set 以 `.chain()` 強制依序執行：
+/// `ProcessInputs → RecognizeGestures → RunScripts → FlushBridgeEvents → UpdateEcsMirror → ComputeStateHash`
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum GameFixedSet {
     ProcessInputs,
+    RecognizeGestures,
     RunScripts,
     FlushBridgeEvents,
     UpdateEcsMirror,

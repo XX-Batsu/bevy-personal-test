@@ -143,6 +143,8 @@ pub fn start_welcome_app(canvas: &str) {
             ..default()
         }))
         .insert_resource(ClearColor(Color::srgb(0.102, 0.102, 0.180)))
+        .add_plugins(super::FixedUpdatePlugin)
+        .add_plugins(super::InputPlugin)
         .add_plugins(WelcomePlugin)
         .run();
 }

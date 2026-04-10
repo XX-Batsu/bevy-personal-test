@@ -8,6 +8,7 @@ pub mod asset_decryption;
 pub mod asset_source;
 pub mod fixed_update;
 pub mod frame_orchestrator;
+pub mod input;
 pub mod interpolation;
 pub mod l1_cache;
 pub mod logging;
@@ -29,6 +30,17 @@ pub use frame_orchestrator::{
     bridge_event_flush_system, ecs_mirror_sync_system, script_frame_orchestration, BridgeEvent,
     LocalBridgeEventQueue, PendingInputs, PendingScriptEvents, ScriptEvent, ScriptInput,
 };
+pub use input::{
+    capture::input_capture_system,
+    distribute::{input_distribution_system, InputBufferRes, LocalPlayerId},
+    gesture::{
+        gesture_recognition_system, reset_gesture_recognizers, GestureEvent, GestureRecognizer,
+        GestureRecognizers,
+    },
+    mapping::{InputAction, InputMapping},
+    raw_input::RawPlayerInput,
+    InputPlugin,
+};
 pub use interpolation::{interpolate_rendering, save_previous_transform, PreviousTransform};
 pub use memory_monitor::{
     MemoryError, MemoryMonitor, MemoryMonitorPlugin, MemoryRegion, RegionGuard, RegionReport,
@@ -47,7 +59,7 @@ use bevy::prelude::*;
 /// **先決條件：** 無（本 Plugin 為最頂層，須在 BridgePlugin 之前加入）。
 ///
 /// 包含：
-/// - FixedUpdate 60Hz + 系統鏈（GameFixedSet 5 個 set）
+/// - FixedUpdate 60Hz + 系統鏈（GameFixedSet 6 個 set）
 /// - save_previous_transform（FixedUpdate / ProcessInputs）
 /// - interpolate_rendering（Update）
 pub struct GamePlugin;
@@ -58,7 +70,7 @@ impl Plugin for GamePlugin {
         logging::init_logging();
         tracing::info!("遊戲引擎初始化完成");
 
-        // 1. FixedUpdate 60Hz + 系統鏈（GameFixedSet 5 set chain）
+        // 1. FixedUpdate 60Hz + 系統鏈（GameFixedSet 6 set chain）
         app.add_plugins(FixedUpdatePlugin);
 
         // 2. 渲染插值：FixedUpdate 開始時保存前一 Transform
@@ -72,7 +84,10 @@ impl Plugin for GamePlugin {
         // 3. 渲染插值：每渲染幀做 lerp/slerp
         app.add_systems(Update, interpolate_rendering);
 
-        // 4. Phase 10 sub-plugins
+        // 4. 輸入捕獲與分發
+        app.add_plugins(input::InputPlugin);
+
+        // 5. Phase 10 sub-plugins
         app.add_plugins((PhysicsPlugin, MemoryMonitorPlugin));
     }
 }
@@ -173,6 +188,9 @@ mod integration_tests {
         fn track_process_inputs(mut tracker: ResMut<OrderTracker>) {
             tracker.order.push("ProcessInputs");
         }
+        fn track_recognize_gestures(mut tracker: ResMut<OrderTracker>) {
+            tracker.order.push("RecognizeGestures");
+        }
         fn track_run_scripts(mut tracker: ResMut<OrderTracker>) {
             tracker.order.push("RunScripts");
         }
@@ -202,6 +220,7 @@ mod integration_tests {
             FixedUpdate,
             (
                 track_process_inputs.in_set(GameFixedSet::ProcessInputs),
+                track_recognize_gestures.in_set(GameFixedSet::RecognizeGestures),
                 track_run_scripts.in_set(GameFixedSet::RunScripts),
                 track_flush_bridge_events.in_set(GameFixedSet::FlushBridgeEvents),
                 track_update_ecs_mirror.in_set(GameFixedSet::UpdateEcsMirror),
@@ -219,12 +238,13 @@ mod integration_tests {
             tracker.order,
             vec![
                 "ProcessInputs",
+                "RecognizeGestures",
                 "RunScripts",
                 "FlushBridgeEvents",
                 "UpdateEcsMirror",
                 "ComputeStateHash",
             ],
-            "系統鏈順序應為 ProcessInputs → RunScripts → FlushBridgeEvents → UpdateEcsMirror → ComputeStateHash，實際: {:?}",
+            "系統鏈順序應為 ProcessInputs → RecognizeGestures → RunScripts → FlushBridgeEvents → UpdateEcsMirror → ComputeStateHash，實際: {:?}",
             tracker.order
         );
     }

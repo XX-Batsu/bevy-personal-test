@@ -2,7 +2,7 @@
 //!
 //! - [`FixedUpdatePlugin`] — 設定 60Hz 固定步進、系統鏈順序、累加器上限
 //! - [`FixedTickCounter`] — 追蹤 FixedUpdate 觸發次數
-//! - [`GameFixedSet`] — 五階段系統排序標籤
+//! - [`GameFixedSet`] — 六階段系統排序標籤
 
 use bevy::prelude::*;
 use std::time::Duration;
@@ -23,6 +23,7 @@ impl Plugin for FixedUpdatePlugin {
             FixedUpdate,
             (
                 GameFixedSet::ProcessInputs,
+                GameFixedSet::RecognizeGestures,
                 GameFixedSet::RunScripts,
                 GameFixedSet::FlushBridgeEvents,
                 GameFixedSet::UpdateEcsMirror,
@@ -37,14 +38,11 @@ impl Plugin for FixedUpdatePlugin {
             .resource_mut::<Time<Virtual>>()
             .set_max_delta(Duration::from_millis(50));
 
-        // 5. tick counter + 空佔位系統
+        // 5. tick counter + 空佔位系統（ProcessInputs 由 InputPlugin 接管）
         app.add_systems(
             FixedUpdate,
             (
-                increment_tick_counter
-                    .in_set(GameFixedSet::ProcessInputs)
-                    .before(process_inputs_stub),
-                process_inputs_stub.in_set(GameFixedSet::ProcessInputs),
+                increment_tick_counter.in_set(GameFixedSet::ProcessInputs),
                 run_scripts_stub.in_set(GameFixedSet::RunScripts),
                 flush_bridge_events_stub.in_set(GameFixedSet::FlushBridgeEvents),
                 update_ecs_mirror_stub.in_set(GameFixedSet::UpdateEcsMirror),
@@ -59,8 +57,7 @@ pub(crate) fn increment_tick_counter(mut counter: ResMut<FixedTickCounter>) {
     counter.count += 1;
 }
 
-// 空佔位系統（後續 Task 替換）
-fn process_inputs_stub() {}
+// 空佔位系統（後續 Task 替換；ProcessInputs 已由 InputPlugin 接管）
 fn run_scripts_stub() {}
 fn flush_bridge_events_stub() {}
 fn update_ecs_mirror_stub() {}
@@ -197,10 +194,11 @@ mod tests {
             FixedUpdate,
             (
                 make_order_system(0).in_set(GameFixedSet::ProcessInputs),
-                make_order_system(1).in_set(GameFixedSet::RunScripts),
-                make_order_system(2).in_set(GameFixedSet::FlushBridgeEvents),
-                make_order_system(3).in_set(GameFixedSet::UpdateEcsMirror),
-                make_order_system(4).in_set(GameFixedSet::ComputeStateHash),
+                make_order_system(1).in_set(GameFixedSet::RecognizeGestures),
+                make_order_system(2).in_set(GameFixedSet::RunScripts),
+                make_order_system(3).in_set(GameFixedSet::FlushBridgeEvents),
+                make_order_system(4).in_set(GameFixedSet::UpdateEcsMirror),
+                make_order_system(5).in_set(GameFixedSet::ComputeStateHash),
             ),
         );
 
@@ -209,8 +207,8 @@ mod tests {
         let tracker = app.world().resource::<OrderTracker>();
         assert_eq!(
             tracker.order,
-            vec![0, 1, 2, 3, 4],
-            "系統鏈順序應為 ProcessInputs→ComputeStateHash，實際: {:?}",
+            vec![0, 1, 2, 3, 4, 5],
+            "系統鏈順序應為 ProcessInputs→RecognizeGestures→RunScripts→FlushBridgeEvents→UpdateEcsMirror→ComputeStateHash，實際: {:?}",
             tracker.order
         );
     }
@@ -230,6 +228,7 @@ mod tests {
     fn test_game_fixed_set_variants() {
         let variants = [
             GameFixedSet::ProcessInputs,
+            GameFixedSet::RecognizeGestures,
             GameFixedSet::RunScripts,
             GameFixedSet::FlushBridgeEvents,
             GameFixedSet::UpdateEcsMirror,

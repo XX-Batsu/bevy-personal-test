@@ -1211,6 +1211,7 @@ dependencies = [
  "crypto",
  "deterministic",
  "js-sys",
+ "netcode",
  "notify",
  "rhai",
  "serde",

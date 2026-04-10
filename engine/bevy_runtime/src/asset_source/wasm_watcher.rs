@@ -134,7 +134,7 @@ mod inner {
         }
     }
 
-    impl super::AssetWatcher for WasmWatcher {
+    impl super::super::AssetWatcher for WasmWatcher {
         fn poll_changes(&self) -> Vec<AssetId> {
             WasmWatcher::poll_changes(self)
         }

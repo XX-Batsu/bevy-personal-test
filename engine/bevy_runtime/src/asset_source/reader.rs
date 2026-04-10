@@ -7,9 +7,10 @@ use bevy::asset::io::{AssetReader, AssetReaderError, PathStream, VecReader};
 use std::path::Path;
 use std::sync::Arc;
 
-use super::id_resolver::IdResolver;
-
 // ── Native 實作 ──────────────────────────────────────────────────────────
+
+#[cfg(not(target_arch = "wasm32"))]
+use super::id_resolver::IdResolver;
 
 #[cfg(not(target_arch = "wasm32"))]
 /// Managed asset reader — 根據 manifest 的 encrypted flag 選擇讀取方式（Native）。
@@ -97,7 +98,9 @@ impl AssetReader for ManagedAssetReader {
 #[cfg(target_arch = "wasm32")]
 /// Managed asset reader — WASM stub。PlainHttpReader（HTTP fetch）將在後續迭代加入。
 pub struct ManagedAssetReader {
+    #[allow(dead_code)]
     manifest: Arc<AssetManifest>,
+    #[allow(dead_code)]
     assets_root: String,
 }
 
