@@ -7,6 +7,6 @@ description = "Server 端 hash 驗證與抽樣 replay 驗證"
 [dependencies]
 bridge_types  = { path = "../../engine/bridge_types" }
 deterministic = { path = "../../engine/deterministic" }
-state_hash    = { path = "../../engine/state_hash" }
-netcode       = { path = "../../engine/netcode" }
+server_types  = { path = "../server_types" }
+replay_engine = { path = "../replay_engine" }
 tracing       = { workspace = true }

@@ -7,6 +7,7 @@ description = "Server 端權威模擬引擎"
 [dependencies]
 bridge_types  = { path = "../../engine/bridge_types" }
 deterministic = { path = "../../engine/deterministic" }
+server_types  = { path = "../server_types" }
 state_hash    = { path = "../../engine/state_hash" }
 netcode       = { path = "../../engine/netcode" }
 tracing       = { workspace = true }

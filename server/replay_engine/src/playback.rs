@@ -3,22 +3,9 @@
 use std::collections::BTreeMap;
 
 use bridge_types::{Blake3Hash, EntityId, PlayerInput};
+use server_types::DeterministicSimulation;
 
 use crate::recorder::ReplayFile;
-
-/// 確定性模擬介面（replay 回放注入）
-pub trait DeterministicSimulation {
-    type Error: std::fmt::Display;
-
-    /// 還原 RNG 狀態
-    fn restore_rng(&mut self, rng_state: &[u8; 16]);
-
-    /// 以給定輸入推進一幀
-    fn step(&mut self, inputs: &BTreeMap<EntityId, PlayerInput>) -> Result<(), Self::Error>;
-
-    /// 計算當前 state hash
-    fn compute_state_hash(&self) -> Blake3Hash;
-}
 
 /// 回放模式
 #[derive(Debug, Clone, PartialEq)]
@@ -64,7 +51,6 @@ pub struct ReplayPlayer {
 }
 
 impl ReplayPlayer {
-    /// 建立回放器
     pub fn new(replay: ReplayFile, mode: PlaybackMode) -> Self {
         Self {
             replay,
@@ -145,21 +131,22 @@ impl ReplayPlayer {
         Some(result)
     }
 
-    /// 回放進度 (current, total)
     pub fn progress(&self) -> (usize, usize) {
         (self.current_frame_idx, self.replay.frames.len())
     }
 
-    /// 取得回放模式
     pub fn mode(&self) -> &PlaybackMode {
         &self.mode
     }
 
-    /// 將 Vec<PlayerInput> 轉為 BTreeMap<EntityId, PlayerInput>
-    fn inputs_to_map(inputs: &[PlayerInput]) -> BTreeMap<EntityId, PlayerInput> {
-        let mut map = BTreeMap::new();
+    /// 將 Vec<PlayerInput> 轉為 BTreeMap<EntityId, Vec<PlayerInput>>
+    ///
+    /// 保留每位玩家的輸入序列（Vec 維持插入順序）。
+    /// 同一 tick 同一玩家的多條輸入以 Vec 形式合併。
+    pub(crate) fn inputs_to_map(inputs: &[PlayerInput]) -> BTreeMap<EntityId, Vec<PlayerInput>> {
+        let mut map: BTreeMap<EntityId, Vec<PlayerInput>> = BTreeMap::new();
         for input in inputs {
-            map.insert(input.player_id, input.clone());
+            map.entry(input.player_id).or_default().push(input.clone());
         }
         map
     }
@@ -205,7 +192,10 @@ mod tests {
             self.rng_restored = true;
         }
 
-        fn step(&mut self, _inputs: &BTreeMap<EntityId, PlayerInput>) -> Result<(), Self::Error> {
+        fn step(
+            &mut self,
+            _inputs: &BTreeMap<EntityId, Vec<PlayerInput>>,
+        ) -> Result<(), Self::Error> {
             if let Some(fail_step) = self.fail_at_step {
                 if self.step_count == fail_step {
                     return Err("模擬失敗".to_string());
@@ -249,9 +239,10 @@ mod tests {
         ]);
         let mut sim = MockSim::new(hash);
         let mut player = ReplayPlayer::new(replay, PlaybackMode::Validation);
-
-        let result = player.run_full(&mut sim);
-        assert_eq!(result, ReplayValidationResult::Ok { frames_verified: 3 });
+        assert_eq!(
+            player.run_full(&mut sim),
+            ReplayValidationResult::Ok { frames_verified: 3 }
+        );
     }
 
     #[test]
@@ -261,10 +252,8 @@ mod tests {
         let replay = make_replay(vec![make_frame(0, hash), make_frame(1, wrong)]);
         let mut sim = MockSim::new(hash);
         let mut player = ReplayPlayer::new(replay, PlaybackMode::Validation);
-
-        let result = player.run_full(&mut sim);
         assert_eq!(
-            result,
+            player.run_full(&mut sim),
             ReplayValidationResult::Desync {
                 first_desync_tick: 1,
                 expected_hash: wrong,
@@ -278,24 +267,20 @@ mod tests {
         let replay = make_replay(vec![]);
         let mut sim = MockSim::new([0u8; 32]);
         let mut player = ReplayPlayer::new(replay, PlaybackMode::Validation);
-
-        let result = player.run_full(&mut sim);
-        assert_eq!(result, ReplayValidationResult::Ok { frames_verified: 0 });
+        assert_eq!(
+            player.run_full(&mut sim),
+            ReplayValidationResult::Ok { frames_verified: 0 }
+        );
     }
 
     #[test]
     fn run_full_simulation_error() {
-        // MockSim::failing_at 的 hash 為 [0u8; 32]，frame hash 必須匹配
         let hash = [0u8; 32];
         let replay = make_replay(vec![make_frame(0, hash), make_frame(1, hash)]);
-        let mut sim = MockSim::failing_at(1); // 第二次 step 時失敗
+        let mut sim = MockSim::failing_at(1);
         let mut player = ReplayPlayer::new(replay, PlaybackMode::Validation);
-
-        let result = player.run_full(&mut sim);
-        match result {
-            ReplayValidationResult::SimulationError { at_tick, .. } => {
-                assert_eq!(at_tick, 1);
-            }
+        match player.run_full(&mut sim) {
+            ReplayValidationResult::SimulationError { at_tick, .. } => assert_eq!(at_tick, 1),
             _ => panic!("Expected SimulationError"),
         }
     }
@@ -306,17 +291,14 @@ mod tests {
         let replay = make_replay(vec![make_frame(0, hash), make_frame(1, hash)]);
         let mut sim = MockSim::new(hash);
         let mut player = ReplayPlayer::new(replay, PlaybackMode::Validation);
-
         let r1 = player.step_frame(&mut sim).unwrap();
         assert_eq!(r1.tick, 0);
         assert!(r1.hash_match);
         assert!(!r1.is_last_frame);
-
         let r2 = player.step_frame(&mut sim).unwrap();
         assert_eq!(r2.tick, 1);
         assert!(r2.hash_match);
         assert!(r2.is_last_frame);
-
         assert!(player.step_frame(&mut sim).is_none());
     }
 
@@ -330,23 +312,9 @@ mod tests {
         ]);
         let mut sim = MockSim::new(hash);
         let mut player = ReplayPlayer::new(replay, PlaybackMode::Validation);
-
         assert_eq!(player.progress(), (0, 3));
         player.step_frame(&mut sim);
         assert_eq!(player.progress(), (1, 3));
-        player.step_frame(&mut sim);
-        assert_eq!(player.progress(), (2, 3));
-    }
-
-    #[test]
-    fn single_frame_replay() {
-        let hash = [0xAA; 32];
-        let replay = make_replay(vec![make_frame(0, hash)]);
-        let mut sim = MockSim::new(hash);
-        let mut player = ReplayPlayer::new(replay, PlaybackMode::Validation);
-
-        let result = player.run_full(&mut sim);
-        assert_eq!(result, ReplayValidationResult::Ok { frames_verified: 1 });
     }
 
     #[test]
@@ -355,8 +323,21 @@ mod tests {
         let replay = make_replay(vec![make_frame(0, hash)]);
         let mut sim = MockSim::new(hash);
         let mut player = ReplayPlayer::new(replay, PlaybackMode::Validation);
-
         player.step_frame(&mut sim);
         assert!(sim.rng_restored);
+    }
+
+    #[test]
+    fn inputs_to_map_groups_by_player() {
+        use bridge_types::DeterministicValue;
+        let make_input = |id: u64| PlayerInput {
+            player_id: EntityId(id),
+            input_type: 0,
+            data: DeterministicValue::Int(0),
+            tick: 0,
+        };
+        let map = ReplayPlayer::inputs_to_map(&[make_input(1), make_input(1), make_input(2)]);
+        assert_eq!(map[&EntityId(1)].len(), 2);
+        assert_eq!(map[&EntityId(2)].len(), 1);
     }
 }

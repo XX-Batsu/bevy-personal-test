@@ -792,14 +792,16 @@ mod tests {
     #[test]
     fn json_drag_start_格式正確() {
         let event = GestureEvent::DragStart {
-            start_pos: (100, 100),
+            start_pos: (100, 200),
             button_mask: 1,
         };
         let json: serde_json::Value =
             serde_json::from_str(&super::gesture_event_to_json(&event)).unwrap();
         assert_eq!(json["type"], "drag_start");
         assert_eq!(json["x"], 100);
+        assert_eq!(json["y"], 200);
         assert_eq!(json["start_x"], 100);
+        assert_eq!(json["start_y"], 200);
     }
 
     #[test]
@@ -831,6 +833,19 @@ mod tests {
         assert_eq!(json["x"], 200);
         assert_eq!(json["y"], 150);
         assert_eq!(json["start_x"], 100);
+    }
+
+    #[test]
+    fn pressed_釋放_elapsed_等於_click_max_ticks_不產生_click() {
+        // elapsed == CLICK_MAX_TICKS（恰好等於閾值）→ 條件 elapsed < CLICK_MAX_TICKS 不成立 → 靜默回 Idle
+        // 確認 ff1775b 修正的「<」而非「<=」邊界
+        let mut r = make_recognizer();
+        // 按下 tick 1（press_tick = 1）
+        tick(&mut r, 1, 0b001, (100, 100));
+        // 釋放 tick 19 → elapsed = 19 - 1 = 18 = CLICK_MAX_TICKS → 不符合 Click
+        let events = tick(&mut r, 19, 0b000, (100, 100));
+        assert!(events.is_empty());
+        assert_eq!(r.state, GestureState::Idle);
     }
 
     #[test]

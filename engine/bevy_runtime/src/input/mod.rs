@@ -30,6 +30,10 @@ impl Plugin for InputPlugin {
         app.init_resource::<RawPlayerInput>();
         app.init_resource::<InputMapping>();
         app.init_resource::<GestureRecognizers>();
+        // PendingInputs 由此處初始化（gesture_recognition_system 向其推送事件）。
+        // 資源的 flush（清空）由 frame_orchestrator 的 FlushBridgeEvents 系統負責。
+        // 若在測試或其他情境中只掛載 InputPlugin 而未掛載 FrameOrchestratorPlugin，
+        // 需自行確保 PendingInputs 會被定期清空，否則記憶體將無限增長。
         app.init_resource::<PendingInputs>();
         app.add_event::<GestureEvent>();
 

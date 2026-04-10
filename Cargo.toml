@@ -13,6 +13,7 @@ members = [
     "engine/vm_bevy_bridge",
     # ── Phase 11 ──
     "engine/netcode",
+    "server/server_types",
     "server/simulation",
     "server/validator",
     "server/replay_engine",

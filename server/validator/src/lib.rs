@@ -4,4 +4,6 @@
 pub mod hash_checker;
 pub mod replay_sampler;
 
-pub use hash_checker::{ClientHashState, HashChecker};
+pub use hash_checker::HashChecker;
+pub use replay_sampler::ReplaySampler;
+pub use server_types::HashCheckResult;

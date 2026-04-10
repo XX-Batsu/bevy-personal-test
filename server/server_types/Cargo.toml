@@ -1,0 +1,8 @@
+[package]
+name = "server_types"
+version.workspace = true
+edition.workspace = true
+description = "Server 端共用類型、trait 與錯誤定義"
+
+[dependencies]
+bridge_types  = { path = "../../engine/bridge_types" }

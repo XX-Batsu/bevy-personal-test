@@ -4,5 +4,5 @@
 pub mod authoritative;
 pub mod metrics;
 
-pub use authoritative::AuthoritativeSimulation;
+pub use authoritative::{AuthoritativeSimulation, PlayerInfo};
 pub use metrics::ServerMetrics;

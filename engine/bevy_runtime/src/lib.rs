@@ -35,7 +35,8 @@ pub use input::{
     distribute::{input_distribution_system, InputBufferRes, LocalPlayerId},
     gesture::{
         gesture_recognition_system, reset_gesture_recognizers, GestureEvent, GestureRecognizer,
-        GestureRecognizers,
+        GestureRecognizers, CLICK_MAX_DISTANCE, CLICK_MAX_TICKS, DOUBLE_CLICK_MAX_DISTANCE,
+        DOUBLE_CLICK_MAX_TICKS, DRAG_MIN_DISTANCE, DRAG_MIN_TICKS, LONG_PRESS_MIN_TICKS,
     },
     mapping::{InputAction, InputMapping},
     raw_input::RawPlayerInput,

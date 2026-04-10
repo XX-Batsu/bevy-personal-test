@@ -5392,8 +5392,7 @@ dependencies = [
  "bridge_types",
  "flate2",
  "serde",
- "state_hash",
- "tracing",
+ "server_types",
 ]
 
 [[package]]
@@ -5852,6 +5851,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "server_types"
+version = "0.1.0"
+dependencies = [
+ "bridge_types",
+]
+
+[[package]]
 name = "sha1"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5969,6 +5975,7 @@ dependencies = [
  "deterministic",
  "netcode",
  "prometheus",
+ "server_types",
  "state_hash",
  "tracing",
 ]
@@ -6898,8 +6905,8 @@ version = "0.1.0"
 dependencies = [
  "bridge_types",
  "deterministic",
- "netcode",
- "state_hash",
+ "replay_engine",
+ "server_types",
  "tracing",
 ]
 

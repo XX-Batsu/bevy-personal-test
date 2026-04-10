@@ -6,8 +6,7 @@ description = "Session replay 錄製與回放（bincode + gzip）"
 
 [dependencies]
 bridge_types = { path = "../../engine/bridge_types" }
-state_hash   = { path = "../../engine/state_hash" }
+server_types = { path = "../server_types" }
 bincode      = { workspace = true }
 serde        = { workspace = true }
 flate2       = { workspace = true }
-tracing      = { workspace = true }
