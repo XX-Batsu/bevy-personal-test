@@ -6,6 +6,7 @@
 pub mod asset_bridge;
 pub mod asset_decryption;
 pub mod asset_source;
+pub mod camera;
 pub mod fixed_update;
 pub mod frame_orchestrator;
 pub mod input;
@@ -25,6 +26,10 @@ pub use asset_decryption::{
     SharedKeyStore,
 };
 pub use asset_source::{AssetManifestRes, BevyAssetImportPlugin};
+pub use camera::{
+    CameraBounds, CameraCinematic, CameraFollow, CameraLookAhead, CameraPlugin, CameraTarget,
+    CameraZoom, CursorWorldPosition, PreviousTargetPosition,
+};
 pub use fixed_update::{FixedTickCounter, FixedUpdatePlugin};
 pub use frame_orchestrator::{
     bridge_event_flush_system, ecs_mirror_sync_system, script_frame_orchestration, BridgeEvent,
@@ -90,6 +95,9 @@ impl Plugin for GamePlugin {
 
         // 5. Phase 10 sub-plugins
         app.add_plugins((PhysicsPlugin, MemoryMonitorPlugin));
+
+        // 6. 攝影機系統
+        app.add_plugins(camera::CameraPlugin);
     }
 }
 
