@@ -56,6 +56,12 @@ impl OpsCostTable {
             "send_prediction" => 15, // Dynamic 型別轉換 + event 寫入
             "request_state" => 10,   // BTreeMap key lookup
 
+            // Camera Bridge（§3.8 Phase B）
+            "camera_shake" => 10,
+            "camera_push_override" => 8,
+            "camera_pop_override" => 3,
+            "camera_clear_overrides" | "camera_clear_shakes" => 5,
+
             // 未知 API（安全兜底，不拒絕但有基本成本）
             _ => 1,
         }
@@ -700,5 +706,32 @@ mod tests {
         }
         // 50 + 25 = 75 ops used
         assert_eq!(tracker.remaining(), 49_925);
+    }
+
+    // ========== Camera Bridge（§3.8 Phase B）成本條目 ==========
+
+    #[test]
+    fn test_cost_camera_shake() {
+        assert_eq!(OpsCostTable::cost_for("camera_shake"), 10);
+    }
+
+    #[test]
+    fn test_cost_camera_push_override() {
+        assert_eq!(OpsCostTable::cost_for("camera_push_override"), 8);
+    }
+
+    #[test]
+    fn test_cost_camera_pop_override() {
+        assert_eq!(OpsCostTable::cost_for("camera_pop_override"), 3);
+    }
+
+    #[test]
+    fn test_cost_camera_clear_overrides() {
+        assert_eq!(OpsCostTable::cost_for("camera_clear_overrides"), 5);
+    }
+
+    #[test]
+    fn test_cost_camera_clear_shakes() {
+        assert_eq!(OpsCostTable::cost_for("camera_clear_shakes"), 5);
     }
 }

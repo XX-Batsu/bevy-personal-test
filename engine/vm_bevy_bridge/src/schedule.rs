@@ -18,3 +18,22 @@ pub enum GameFixedSet {
     UpdateEcsMirror,
     ComputeStateHash,
 }
+
+/// 測試用 helper：configure GameFixedSet chain（一般由 `bevy_runtime::GamePlugin` 呼叫）。
+///
+/// 不加 `#[cfg(test)]` gate（雖名 `_for_tests`），因 bevy_runtime crate 內
+/// `tests/camera_phase_b_e2e.rs` 整合測試需透過 dependency 存取。
+pub fn configure_game_fixed_set_for_tests(app: &mut App) {
+    app.configure_sets(
+        FixedUpdate,
+        (
+            GameFixedSet::ProcessInputs,
+            GameFixedSet::RecognizeGestures,
+            GameFixedSet::RunScripts,
+            GameFixedSet::FlushBridgeEvents,
+            GameFixedSet::UpdateEcsMirror,
+            GameFixedSet::ComputeStateHash,
+        )
+            .chain(),
+    );
+}

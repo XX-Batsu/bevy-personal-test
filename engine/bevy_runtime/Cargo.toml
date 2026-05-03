@@ -27,6 +27,7 @@ rhai = { workspace = true }
 serde_json = { workspace = true }
 bridge_types = { path = "../bridge_types" }
 netcode = { path = "../netcode" }
+noise = "0.9"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 notify = { version = "6", optional = true }

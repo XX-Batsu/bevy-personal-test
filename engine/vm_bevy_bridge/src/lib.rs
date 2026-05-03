@@ -20,7 +20,7 @@ pub use flush::{
 };
 pub use handle_sweep::{sweep_handle_registry, HandleRegistryResource, SimulationClock};
 pub use mirror_sync::{update_ecs_mirror, EcsMirrorResource, SharedBridgeState};
-pub use schedule::GameFixedSet;
+pub use schedule::{configure_game_fixed_set_for_tests, GameFixedSet};
 
 mod plugin;
 pub use plugin::BridgePlugin;

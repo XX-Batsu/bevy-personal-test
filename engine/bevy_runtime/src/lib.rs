@@ -27,8 +27,31 @@ pub use asset_decryption::{
 };
 pub use asset_source::{AssetManifestRes, BevyAssetImportPlugin};
 pub use camera::{
-    CameraBounds, CameraCinematic, CameraFollow, CameraLookAhead, CameraPlugin, CameraTarget,
-    CameraZoom, CursorWorldPosition, PreviousTargetPosition,
+    // 既有
+    CameraBounds,
+    CameraCinematic,
+    CameraFollow,
+    CameraLookAhead,
+    // 新增：override stack
+    CameraOverrideOp,
+    CameraOverrideRequest,
+    CameraOverrideStack,
+    CameraPlugin,
+    // 新增：shake
+    CameraShake,
+    CameraShakeOp,
+    CameraShakeRequest,
+    CameraTarget,
+    CameraZoom,
+    CursorWorldPosition,
+    Override,
+    OverrideId,
+    PreviousTargetPosition,
+    PushOverrideParams,
+    ShakeEntry,
+    ShakeId,
+    ShakeParams,
+    ShakeSeedCounter,
 };
 pub use fixed_update::{FixedTickCounter, FixedUpdatePlugin};
 pub use frame_orchestrator::{

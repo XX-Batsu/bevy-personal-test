@@ -17,11 +17,28 @@ pub const DEFAULT_ZOOM_SPEED: f32 = 8.0;
 pub const DEFAULT_CINEMATIC_SPEED: f32 = 5.0;
 pub const DEFAULT_VIEWPORT_HEIGHT: f32 = 720.0;
 
+// ── Shake 常數（framework 中性，無遊戲語意） ──────────────────────────────
+
+/// Perlin noise 採樣頻率（Hz）。每秒採樣此次數以產生 offset。演算法內部參數，不代表遊戲語意。
+pub const SHAKE_FREQUENCY: f32 = 25.0;
+
+/// `ShakeParams.decay_rate` 的 `Default` 值（trauma 每秒 linear 衰減量）。
+pub const DEFAULT_SHAKE_DECAY_RATE: f32 = 2.0;
+
+/// `ShakeEntry.direction_bias` 的 `Default` 值（沿 direction 軸乘數）。
+pub const DEFAULT_SHAKE_DIRECTION_BIAS: f32 = 1.5;
+
+/// `ShakeEntry.perpendicular_damping` 的 `Default` 值（垂直 direction 軸乘數）。
+pub const DEFAULT_SHAKE_PERPENDICULAR_DAMPING: f32 = 0.3;
+
+/// `max_strength = 0.0` 時的視口相對 fallback — viewport_height 的比例。
+pub const DEFAULT_SHAKE_MAX_STRENGTH_RATIO: f32 = 0.035;
+
 // ── CameraTarget ─────────────────────────────────────────────────────────────
 
 /// 標記攝影機追蹤的目標 entity。
 /// 場上應僅有一個 entity 帶此 marker。若有多個，系統取 `iter().next()` 並發出 `warn_once!`。
-#[derive(Component)]
+#[derive(Component, Debug, Clone)]
 pub struct CameraTarget;
 
 // ── CameraFollow ─────────────────────────────────────────────────────────────
@@ -29,7 +46,7 @@ pub struct CameraTarget;
 /// 平滑追蹤行為 — 掛在攝影機 entity 上。
 /// 每幀使用 frame-rate-independent 指數衰減追蹤 `CameraTarget` entity 位置。
 /// 自動插入 `PreviousTargetPosition`（Required Component）。
-#[derive(Component)]
+#[derive(Component, Debug, Clone)]
 #[require(PreviousTargetPosition)]
 pub struct CameraFollow {
     /// 衰減速度（越大越快收斂）。0.0 = 不動，正無窮 = 瞬移。
@@ -50,7 +67,7 @@ impl Default for CameraFollow {
 /// Look-ahead 預看偏移 — 掛在攝影機 entity 上。
 /// 基於滑鼠位置 + 目標移動方向的加權混合。
 /// 需與 `CameraFollow` 搭配使用（依賴 `PreviousTargetPosition`）。
-#[derive(Component)]
+#[derive(Component, Debug, Clone)]
 pub struct CameraLookAhead {
     /// 滑鼠偏移權重。計算：(滑鼠世界座標 - 目標位置) × 權重。
     pub mouse_weight: f32,
@@ -74,7 +91,7 @@ impl Default for CameraLookAhead {
 
 /// 縮放控制 — 掛在攝影機 entity 上。
 /// 支援滾輪（含 macOS 觸控板）和程式控制。
-#[derive(Component)]
+#[derive(Component, Debug, Clone)]
 pub struct CameraZoom {
     /// 當前 viewport_height。
     pub current: f32,
@@ -108,26 +125,25 @@ impl Default for CameraZoom {
 /// 邊界限制 — 掛在攝影機 entity 上。
 /// 攝影機位置被 clamp 在 min..max 範圍內。
 /// 不掛此 component 時無邊界限制。
-#[derive(Component)]
+#[derive(Component, Debug, Clone)]
 pub struct CameraBounds {
     /// 左下角世界座標。
     pub min: Vec2,
     /// 右上角世界座標。
     pub max: Vec2,
+    /// `true` = shake offset 也受 bounds clamp（嚴格邊界模式）。
+    /// `false` = shake 可暫時越界（業界標準、預設）。
+    pub clamp_shake: bool,
 }
 
-// ── CameraCinematic ──────────────────────────────────────────────────────────
-
-/// Cinematic 演出模式 — 掛上啟用，移除恢復正常追蹤。
-/// 存在時，`CameraFollow` 和 `CameraLookAhead` 系統自動跳過。
-#[derive(Component)]
-pub struct CameraCinematic {
-    /// 演出目標世界位置。
-    pub target_position: Vec2,
-    /// 演出目標 viewport_height。
-    pub target_zoom: f32,
-    /// 過渡衰減速度。內部公式：factor = 1.0 - exp(-speed * dt)
-    pub speed: f32,
+impl Default for CameraBounds {
+    fn default() -> Self {
+        Self {
+            min: Vec2::ZERO,
+            max: Vec2::ZERO,
+            clamp_shake: false,
+        }
+    }
 }
 
 // ── PreviousTargetPosition ───────────────────────────────────────────────────
@@ -135,9 +151,26 @@ pub struct CameraCinematic {
 /// 上一幀目標位置 — 掛在攝影機 entity 上。
 /// 由 `update_previous_target_system` 每幀更新（排在 look-ahead 之後）。
 /// 首幀時 position 為 None，look-ahead 將 velocity 部分視為零向量。
-#[derive(Component, Default)]
+#[derive(Component, Debug, Clone, Default)]
 pub struct PreviousTargetPosition {
     pub position: Option<Vec2>,
+}
+
+// ── 工具函式 ─────────────────────────────────────────────────────────────────
+
+/// 計算 frame-rate-independent 指數衰減因子。
+///
+/// 公式：`1.0 - exp(-speed * dt)`
+///
+/// - `speed`：衰減速度（越大越快收斂）。負值視為 0.0（不移動）。
+/// - `dt`：delta time（呼叫者應先 cap 至 0.1）。負值視為 0.0。
+///
+/// 回傳值域 \[0.0, 1.0)，可直接用於 `lerp` 的 `t` 參數。
+#[inline]
+pub fn decay_factor(speed: f32, dt: f32) -> f32 {
+    let speed = speed.max(0.0);
+    let dt = dt.max(0.0);
+    1.0 - (-speed * dt).exp()
 }
 
 // ── 測試 ─────────────────────────────────────────────────────────────────────
@@ -192,6 +225,24 @@ mod tests {
         assert!(
             app.world().get::<PreviousTargetPosition>(entity).is_some(),
             "#[require] 應自動插入 PreviousTargetPosition"
+        );
+    }
+
+    #[test]
+    fn decay_factor_負值_speed_回傳零() {
+        let factor = decay_factor(-5.0, 1.0 / 60.0);
+        assert!(
+            factor.abs() < f32::EPSILON,
+            "負值 speed 應被視為 0.0，factor 應為 0，實際: {factor}"
+        );
+    }
+
+    #[test]
+    fn decay_factor_負值_dt_回傳零() {
+        let factor = decay_factor(8.0, -0.1);
+        assert!(
+            factor.abs() < f32::EPSILON,
+            "負值 dt 應被視為 0.0，factor 應為 0，實際: {factor}"
         );
     }
 }

@@ -48,6 +48,7 @@ pub fn cursor_position_system(
 
     let mut iter = camera_query.iter();
     let Some((camera, transform)) = iter.next() else {
+        bevy::utils::warn_once!("找不到帶 CameraFollow 的遊戲攝影機");
         cursor_world.position = None;
         return;
     };
@@ -88,5 +89,45 @@ mod tests {
 
         let cursor = app.world().resource::<CursorWorldPosition>();
         assert!(cursor.position.is_none(), "無視窗時應為 None");
+    }
+
+    /// §10：「多個 CameraFollow — cursor_position_system 取第一個並發出 warn_once，不 panic」
+    /// 產生兩個帶 CameraFollow 的 Camera entity，系統不 panic 且正常執行。
+    #[test]
+    fn cursor_position_system_多個_camera_follow_不_panic() {
+        use crate::camera::components::PreviousTargetPosition;
+        use bevy::ecs::system::RunSystemOnce;
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<CursorWorldPosition>();
+
+        // 產生兩個帶 CameraFollow + Camera 的 entity
+        app.world_mut().spawn((
+            Camera::default(),
+            GlobalTransform::default(),
+            CameraFollow::default(),
+            PreviousTargetPosition::default(),
+            Transform::default(),
+        ));
+        app.world_mut().spawn((
+            Camera::default(),
+            GlobalTransform::default(),
+            CameraFollow::default(),
+            PreviousTargetPosition::default(),
+            Transform::default(),
+        ));
+
+        // 不 panic 即通過（warn_once 無法在測試中斷言，但程式碼路徑被覆蓋）
+        app.world_mut()
+            .run_system_once(cursor_position_system)
+            .unwrap();
+
+        // position 應為 None（無視窗的 PrimaryWindow）
+        let cursor = app.world().resource::<CursorWorldPosition>();
+        assert!(
+            cursor.position.is_none(),
+            "無視窗時即使有多個 CameraFollow，position 仍應為 None"
+        );
     }
 }

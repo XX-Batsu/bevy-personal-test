@@ -33,6 +33,7 @@
 pub mod atomic_update;
 pub mod bridge_api;
 pub mod bytecode_loader;
+pub mod camera_module;
 #[cfg(feature = "debug-mode")]
 pub mod dev_tools;
 pub mod dynamic_convert;
@@ -48,10 +49,11 @@ pub mod script_manager;
 
 pub use atomic_update::{AtomicBatchStatus, AtomicUpdateManager, BATCH_TIMEOUT_FRAMES};
 pub use bridge_api::{
-    register_bridge_api, BridgeState, EntityIdAllocator, EventQueue, SharedState,
+    register_bridge_api, BridgeState, CameraOpQueue, EntityIdAllocator, EventQueue, SharedState,
 };
 pub use bridge_types::ScriptError;
 pub use bytecode_loader::{BytecodeLoader, LoadError as BytecodeLoadError};
+pub use camera_module::register_camera_module;
 pub use dynamic_convert::{to_deterministic, to_rhai_dynamic};
 pub use fallback::{
     emit_disable_notification, AnimationDefault, DisableReason, ScriptDisabled, ServerPosition,

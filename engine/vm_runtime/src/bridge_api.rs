@@ -13,7 +13,8 @@ use std::collections::BTreeMap;
 use std::rc::Rc;
 
 use bridge_types::{
-    BridgeError, BridgeEvent, DynamicValue, EcsMirror, EffectHandle, EntityId, SoundHandle,
+    BridgeError, BridgeEvent, CameraBridgeOp, DynamicValue, EcsMirror, EffectHandle, EntityId,
+    SoundHandle,
 };
 use deterministic::{SoftF32, SoftVec3};
 use rhai::{Dynamic, EvalAltResult, Position};
@@ -24,6 +25,37 @@ use crate::ops_cost::{OpsCostTable, OpsTracker};
 
 /// 共享狀態類型別名（WASM 單執行緒環境）
 pub type SharedState<T> = Rc<RefCell<T>>;
+
+/// 攝影機 op 佇列。Rhai → camera_module 註冊閉包 push，
+/// 在 FixedUpdate.FlushBridgeEvents stage 由 bevy_runtime::camera::flush_camera_ops drain。
+#[derive(Default)]
+pub struct CameraOpQueue {
+    ops: Vec<CameraBridgeOp>,
+}
+
+impl CameraOpQueue {
+    pub fn new() -> Self {
+        Self {
+            ops: Vec::with_capacity(16),
+        }
+    }
+
+    pub fn push(&mut self, op: CameraBridgeOp) {
+        self.ops.push(op);
+    }
+
+    pub fn drain(&mut self) -> Vec<CameraBridgeOp> {
+        self.ops.drain(..).collect()
+    }
+
+    pub fn len(&self) -> usize {
+        self.ops.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.ops.is_empty()
+    }
+}
 
 /// 事件佇列：收集單幀內所有 Bridge API 產生的 BridgeEvent
 ///
@@ -92,6 +124,7 @@ impl EntityIdAllocator {
 /// Bridge API 統一共享狀態
 pub struct BridgeState {
     pub event_queue: EventQueue,
+    pub camera_op_queue: CameraOpQueue, // 新增（B3 / B4 將使用）
     pub ecs_mirror: EcsMirror,
     pub ops_tracker: OpsTracker,
     pub handle_registry: HandleRegistry,
@@ -108,6 +141,7 @@ impl BridgeState {
     pub fn new() -> Self {
         Self {
             event_queue: EventQueue::new(),
+            camera_op_queue: CameraOpQueue::new(), // 新增
             ecs_mirror: EcsMirror {
                 entities: BTreeMap::new(),
                 local_player_id: EntityId(0),
@@ -401,7 +435,10 @@ pub fn register_bridge_api(engine: &mut rhai::Engine, state: SharedState<BridgeS
 
     // §3.6 Network（2）
     register_send_prediction(engine, state.clone());
-    register_request_state(engine, state);
+    register_request_state(engine, state.clone());
+
+    // §3.8 Camera Bridge（Phase B）
+    crate::camera_module::register_camera_module(engine, state);
 }
 
 // ── §3.1 Entity ──
@@ -1231,6 +1268,7 @@ mod tests {
     fn test_ops_exceeded_interrupts_script() {
         let state = Rc::new(RefCell::new(BridgeState {
             event_queue: EventQueue::new(),
+            camera_op_queue: CameraOpQueue::new(),
             ecs_mirror: EcsMirror {
                 entities: BTreeMap::new(),
                 local_player_id: EntityId(0),
@@ -1482,6 +1520,7 @@ mod tests {
     fn test_ops_error_message_format() {
         let state = Rc::new(RefCell::new(BridgeState {
             event_queue: EventQueue::new(),
+            camera_op_queue: CameraOpQueue::new(),
             ecs_mirror: EcsMirror {
                 entities: BTreeMap::new(),
                 local_player_id: EntityId(0),

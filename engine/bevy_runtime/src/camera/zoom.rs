@@ -6,7 +6,7 @@ use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 use bevy::render::camera::ScalingMode;
 
-use super::components::CameraZoom;
+use super::components::{decay_factor, CameraZoom};
 
 /// Update 系統：處理滾輪輸入與 zoom lerp。
 pub fn camera_zoom_system(
@@ -30,12 +30,14 @@ pub fn camera_zoom_system(
             );
         }
 
-        // clamp target
-        zoom.target = zoom.target.clamp(zoom.min, zoom.max);
+        // clamp target（防禦 min > max 的配置錯誤）
+        let clamp_min = zoom.min.min(zoom.max);
+        let clamp_max = zoom.min.max(zoom.max);
+        zoom.target = zoom.target.clamp(clamp_min, clamp_max);
 
         // lerp current → target
-        let factor = 1.0 - (-zoom.speed * dt).exp();
-        zoom.current = zoom.current + (zoom.target - zoom.current) * factor;
+        let factor = decay_factor(zoom.speed, dt);
+        zoom.current += (zoom.target - zoom.current) * factor;
 
         // 更新 Projection
         if let Projection::Orthographic(ref mut ortho) = *projection {
@@ -176,5 +178,96 @@ mod tests {
         } else {
             panic!("應為 Orthographic projection");
         }
+    }
+
+    #[test]
+    fn zoom_反向滾輪_zoom_out() {
+        let mut app = build_test_app();
+        spawn_camera_with_zoom(&mut app);
+
+        // y=-1 → target += scroll_speed → 720 + 60 = 780
+        app.world_mut().send_event(MouseWheel {
+            unit: MouseScrollUnit::Line,
+            x: 0.0,
+            y: -1.0,
+            window: Entity::PLACEHOLDER,
+        });
+
+        app.world_mut().run_system_once(camera_zoom_system).unwrap();
+
+        let zoom = app
+            .world_mut()
+            .query::<&CameraZoom>()
+            .iter(app.world())
+            .next()
+            .unwrap();
+        assert!(
+            (zoom.target - 780.0).abs() < 0.01,
+            "反向滾輪 zoom.target 應為 780，實際: {}",
+            zoom.target
+        );
+    }
+
+    #[test]
+    fn zoom_無滾輪事件_target_不變() {
+        let mut app = build_test_app();
+        let cam = spawn_camera_with_zoom(&mut app);
+
+        // 不傳送任何 MouseWheel 事件
+        app.world_mut().run_system_once(camera_zoom_system).unwrap();
+
+        let zoom = app.world().get::<CameraZoom>(cam).unwrap();
+        assert_eq!(
+            zoom.target, DEFAULT_VIEWPORT_HEIGHT,
+            "無滾輪事件時 target 不應改變"
+        );
+    }
+
+    #[test]
+    fn zoom_perspective_projection_不_panic() {
+        let mut app = build_test_app();
+
+        app.world_mut().spawn((
+            CameraZoom::default(),
+            Projection::Perspective(bevy::render::camera::PerspectiveProjection::default()),
+            Transform::default(),
+        ));
+
+        // 不 panic 即通過（Perspective 分支不更新 scaling_mode）
+        app.world_mut().run_system_once(camera_zoom_system).unwrap();
+    }
+
+    #[test]
+    fn zoom_min_大於_max_不_panic() {
+        let mut app = build_test_app();
+
+        let cam = app
+            .world_mut()
+            .spawn((
+                CameraZoom {
+                    min: 1000.0, // min > max（配置錯誤）
+                    max: 200.0,
+                    ..CameraZoom::default()
+                },
+                Projection::Orthographic(OrthographicProjection {
+                    scaling_mode: ScalingMode::FixedVertical {
+                        viewport_height: DEFAULT_VIEWPORT_HEIGHT,
+                    },
+                    ..OrthographicProjection::default_2d()
+                }),
+                Transform::default(),
+            ))
+            .id();
+
+        // 不 panic 即通過
+        app.world_mut().run_system_once(camera_zoom_system).unwrap();
+
+        let zoom = app.world().get::<CameraZoom>(cam).unwrap();
+        // target 應被 clamp 在 [200, 1000] 範圍（系統自動修正 min/max 順序）
+        assert!(
+            zoom.target >= 200.0 && zoom.target <= 1000.0,
+            "min > max 時 target 應被 clamp 在修正後範圍內，實際: {}",
+            zoom.target
+        );
     }
 }

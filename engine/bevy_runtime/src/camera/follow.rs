@@ -5,25 +5,19 @@
 use bevy::prelude::*;
 
 use super::components::{
-    CameraCinematic, CameraFollow, CameraLookAhead, CameraTarget, PreviousTargetPosition,
+    decay_factor, CameraFollow, CameraLookAhead, CameraTarget, PreviousTargetPosition,
 };
 use super::cursor::CursorWorldPosition;
-
-/// 計算 frame-rate-independent 衰減因子。
-/// `dt` 已由呼叫者 cap 至 0.1。
-fn decay_factor(speed: f32, dt: f32) -> f32 {
-    1.0 - (-speed * dt).exp()
-}
+use super::override_stack::CameraOverrideStack;
 
 /// Update 系統：平滑追蹤 `CameraTarget` entity。
-/// Cinematic 模式時跳過（`Without<CameraCinematic>`）。
-#[allow(clippy::type_complexity)]
+/// Override stack 非空時跳過（由 `override_apply_system` 負責移動）。
 pub fn camera_follow_system(
     time: Res<Time>,
     target_query: Query<&Transform, With<CameraTarget>>,
     mut camera_query: Query<
-        (&CameraFollow, &mut Transform),
-        (Without<CameraCinematic>, Without<CameraTarget>),
+        (&CameraFollow, &mut Transform, Option<&CameraOverrideStack>),
+        Without<CameraTarget>,
     >,
 ) {
     let mut iter = target_query.iter();
@@ -38,7 +32,11 @@ pub fn camera_follow_system(
 
     let dt = time.delta_secs().min(0.1);
 
-    for (follow, mut cam_transform) in camera_query.iter_mut() {
+    for (follow, mut cam_transform, override_stack) in camera_query.iter_mut() {
+        // Override stack 非空時跳過 follow（由 override_apply_system 負責移動）
+        if override_stack.map(|s| !s.is_empty()).unwrap_or(false) {
+            continue;
+        }
         let factor = decay_factor(follow.speed, dt);
         let current = cam_transform.translation.truncate();
         let new_pos = current.lerp(target_pos, factor);
@@ -50,17 +48,19 @@ pub fn camera_follow_system(
 
 /// Update 系統：疊加 look-ahead 偏移。
 /// 在 `camera_follow_system` 之後執行。
+/// Override stack 非空時跳過（由 `override_apply_system` 負責移動）。
 #[allow(clippy::type_complexity)]
 pub fn camera_look_ahead_system(
     cursor_world: Res<CursorWorldPosition>,
     target_query: Query<&Transform, With<CameraTarget>>,
     mut camera_query: Query<
-        (&CameraLookAhead, &PreviousTargetPosition, &mut Transform),
         (
-            With<CameraFollow>,
-            Without<CameraCinematic>,
-            Without<CameraTarget>,
+            &CameraLookAhead,
+            &PreviousTargetPosition,
+            &mut Transform,
+            Option<&CameraOverrideStack>,
         ),
+        (With<CameraFollow>, Without<CameraTarget>),
     >,
 ) {
     let Some(target_transform) = target_query.iter().next() else {
@@ -68,11 +68,15 @@ pub fn camera_look_ahead_system(
     };
     let target_pos = target_transform.translation.truncate();
 
-    for (look_ahead, prev, mut cam_transform) in camera_query.iter_mut() {
+    for (look_ahead, prev, mut cam_transform, override_stack) in camera_query.iter_mut() {
+        // Override stack 非空時跳過 look-ahead
+        if override_stack.map(|s| !s.is_empty()).unwrap_or(false) {
+            continue;
+        }
         let velocity = target_pos - prev.position.unwrap_or(target_pos);
         let mouse = cursor_world.position.unwrap_or(target_pos) - target_pos;
         let offset = velocity * look_ahead.velocity_weight + mouse * look_ahead.mouse_weight;
-        let offset = if offset.length() > look_ahead.max_offset {
+        let offset = if offset.length_squared() > look_ahead.max_offset * look_ahead.max_offset {
             offset.normalize_or_zero() * look_ahead.max_offset
         } else {
             offset
@@ -481,5 +485,206 @@ mod tests {
 
         let prev = app.world().get::<PreviousTargetPosition>(cam).unwrap();
         assert!(prev.position.is_none());
+    }
+
+    // ── 多個 CameraTarget ──────────────────────────────────
+
+    #[test]
+    fn follow_多個_camera_target_不_panic_取第一個() {
+        let mut app = build_test_app();
+        app.add_systems(Update, camera_follow_system);
+
+        // 產生兩個 CameraTarget
+        spawn_target(&mut app, Vec2::new(100.0, 0.0));
+        spawn_target(&mut app, Vec2::new(-100.0, 0.0));
+
+        let cam = spawn_camera_with_follow(&mut app, Vec2::ZERO, 8.0);
+
+        // 應不 panic，且攝影機應朝某一個目標移動
+        app.update();
+        app.update();
+
+        let cam_pos = app
+            .world()
+            .get::<Transform>(cam)
+            .unwrap()
+            .translation
+            .truncate();
+        // 不檢查具體方向（取決於 iter 順序），只驗證有移動
+        assert!(
+            cam_pos.length() > 0.01,
+            "多個 CameraTarget 時攝影機應追蹤其中一個，實際: {cam_pos:?}"
+        );
+    }
+
+    // ── look-ahead velocity 方向 ────────────────────────────
+
+    #[test]
+    fn look_ahead_目標向右移動_攝影機偏右() {
+        let mut app = build_test_app();
+        let target_pos = Vec2::new(50.0, 0.0);
+        spawn_target(&mut app, target_pos);
+
+        // 滑鼠在目標上（排除 mouse_weight 影響）
+        app.insert_resource(CursorWorldPosition {
+            position: Some(target_pos),
+        });
+
+        // previous 在 (0,0)，目標在 (50,0)，velocity = (50,0)
+        let cam = app
+            .world_mut()
+            .spawn((
+                CameraFollow::default(),
+                CameraLookAhead {
+                    mouse_weight: 0.0,
+                    velocity_weight: 1.0,
+                    max_offset: 120.0,
+                },
+                PreviousTargetPosition {
+                    position: Some(Vec2::ZERO),
+                },
+                Transform::from_xyz(target_pos.x, target_pos.y, 0.0),
+            ))
+            .id();
+
+        app.world_mut()
+            .run_system_once(camera_look_ahead_system)
+            .unwrap();
+
+        let cam_x = app.world().get::<Transform>(cam).unwrap().translation.x;
+        assert!(
+            cam_x > target_pos.x,
+            "目標向右移動，velocity_weight 應使攝影機偏右。cam_x={cam_x}, target_x={}",
+            target_pos.x
+        );
+    }
+
+    // ── look-ahead 零速度（目標靜止、Some 路徑）────────────
+
+    /// §10：「look-ahead 零速度 — 目標靜止時 velocity 向量為零，無 NaN，攝影機只受 mouse 偏移」
+    /// 此測試與 `look_ahead_previous_none_velocity_為零` 不同：
+    /// 這裡 PreviousTargetPosition 為 Some（非首幀），且滑鼠在目標右方。
+    /// 預期只有 mouse_weight 偏移，velocity 部分為零。
+    #[test]
+    fn look_ahead_目標靜止_velocity_為零_只受_mouse_偏移() {
+        let mut app = build_test_app();
+        let target_pos = Vec2::new(50.0, 50.0);
+        spawn_target(&mut app, target_pos);
+
+        // 滑鼠在目標右方 100 單位
+        app.insert_resource(CursorWorldPosition {
+            position: Some(Vec2::new(150.0, 50.0)),
+        });
+
+        // previous == target（目標靜止），velocity = (0, 0)
+        let cam = app
+            .world_mut()
+            .spawn((
+                CameraFollow::default(),
+                CameraLookAhead {
+                    mouse_weight: 0.3,
+                    velocity_weight: 0.5,
+                    max_offset: 120.0,
+                },
+                PreviousTargetPosition {
+                    position: Some(target_pos),
+                },
+                Transform::from_xyz(target_pos.x, target_pos.y, 0.0),
+            ))
+            .id();
+
+        app.world_mut()
+            .run_system_once(camera_look_ahead_system)
+            .unwrap();
+
+        let cam_pos = app
+            .world()
+            .get::<Transform>(cam)
+            .unwrap()
+            .translation
+            .truncate();
+
+        // mouse 向量 = (100, 0)，mouse_weight=0.3 → 偏移 (30, 0)
+        // velocity 向量 = (0, 0) → 無貢獻
+        let offset = cam_pos - target_pos;
+        assert!(
+            !offset.x.is_nan() && !offset.y.is_nan(),
+            "目標靜止時不應產生 NaN，實際: {offset:?}"
+        );
+        assert!(
+            (offset.x - 30.0).abs() < 0.01,
+            "目標靜止時只受 mouse 偏移，預期 x=30，實際: {}",
+            offset.x
+        );
+        assert!(
+            offset.y.abs() < 0.01,
+            "目標靜止時 y 偏移應為 0，實際: {}",
+            offset.y
+        );
+    }
+
+    // ── dt cap 系統層級 ──────────────────────────────────
+
+    /// §10：「dt cap 保護 — dt=1.0s 時 factor ≤ 1.0 - exp(-speed * 0.1)，攝影機不瞬跳超射」
+    /// 驗證 follow 系統在超大 dt 時不會超過 cap 後的預期移動量。
+    #[test]
+    fn follow_dt_cap_系統層級_不超射() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<CursorWorldPosition>();
+        // dt = 1.0 秒（模擬 tab 切換回來的超大 delta）
+        app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f32(
+            1.0,
+        )));
+        app.add_systems(Update, camera_follow_system);
+
+        spawn_target(&mut app, Vec2::new(100.0, 0.0));
+        let cam = spawn_camera_with_follow(&mut app, Vec2::ZERO, 8.0);
+
+        app.update(); // Frame 0：初始化時間
+        app.update(); // Frame 1：dt=1.0 生效
+
+        let cam_pos = app
+            .world()
+            .get::<Transform>(cam)
+            .unwrap()
+            .translation
+            .truncate();
+
+        // dt 被 cap 至 0.1，factor = 1 - exp(-8 * 0.1) ≈ 0.5507
+        // 預期移動量 ≈ 100 * 0.5507 ≈ 55.07
+        // 若無 cap，dt=1.0 → factor = 1 - exp(-8) ≈ 0.99966 → 移動 ≈ 99.97
+        let expected_max = 100.0 * (1.0 - (-8.0_f32 * 0.1).exp());
+        assert!(
+            cam_pos.x <= expected_max + 0.1,
+            "dt=1.0 被 cap 至 0.1，攝影機不應超過 cap 後的移動量 {expected_max:.2}，實際: {}",
+            cam_pos.x
+        );
+        assert!(cam_pos.x > 1.0, "攝影機應有所移動，實際: {}", cam_pos.x);
+    }
+
+    // ── negative speed ────────────────────────────────────
+
+    #[test]
+    fn follow_speed_負值_不_panic() {
+        let mut app = build_test_app();
+        spawn_target(&mut app, Vec2::new(100.0, 0.0));
+        let cam = spawn_camera_with_follow(&mut app, Vec2::ZERO, -5.0);
+
+        app.world_mut()
+            .run_system_once(camera_follow_system)
+            .unwrap();
+
+        // speed 負值被 decay_factor() clamp 至 0，factor=0，攝影機不應移動。
+        let pos = app
+            .world()
+            .get::<Transform>(cam)
+            .unwrap()
+            .translation
+            .truncate();
+        assert!(
+            pos.abs_diff_eq(Vec2::ZERO, 1e-5),
+            "speed 負值應被 clamp 至 0，攝影機不應移動，實際: {pos:?}"
+        );
     }
 }

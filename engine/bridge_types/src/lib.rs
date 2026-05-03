@@ -14,11 +14,13 @@
 //! - [`dynamic_value`] — DynamicValue（渲染層值型別，含 f64）
 //! - [`deterministic_value`] — DeterministicValue（game logic 值型別，含 SoftF32 + validated_str()）
 //! - [`bridge_event`] — BridgeEvent（VM → Bevy 事件，23 variants）
+//! - [`camera_effects`] — CameraHandle, CameraBridgeOp（VM → Bevy 攝影機操作型別）
 //! - [`errors`] — BridgeError, ScriptError
 //! - [`ecs_mirror`] — EcsMirror, MirroredEntity（BTreeMap，確定性迭代）
 //! - [`replay`] — ReplayFrame, PlayerInput, Blake3Hash
 
 pub mod bridge_event;
+pub mod camera_effects;
 pub mod deterministic_value;
 pub mod dynamic_value;
 pub mod ecs_mirror;
@@ -28,6 +30,7 @@ pub mod replay;
 pub mod shadow;
 
 pub use bridge_event::*;
+pub use camera_effects::*;
 pub use deterministic_value::*;
 pub use dynamic_value::*;
 pub use ecs_mirror::*;
