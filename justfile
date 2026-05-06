@@ -87,6 +87,18 @@ download-fonts:
       fi
     fi
 
+    # 3.5. curl fallback（Linux / CI / 其他環境）— 從 stable URL 下載
+    if command -v curl &>/dev/null; then
+      url="https://github.com/notofonts/noto-cjk/raw/main/Sans/OTF/TraditionalChinese/NotoSansCJKtc-Regular.otf"
+      echo "從網路下載字型：$url"
+      if curl -fL -o "$dst" "$url" && [[ -s "$dst" ]]; then
+        echo "字型已就緒：$dst"
+        exit 0
+      fi
+      echo "curl 下載失敗，繼續嘗試手動指引"
+      rm -f "$dst"  # 清除可能的不完整檔
+    fi
+
     # 4. 手動說明
     echo ""
     echo "請手動安裝字型："

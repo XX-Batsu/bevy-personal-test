@@ -136,7 +136,7 @@ fn mutation_ecs_mirror_hash_tamper_detected() {
 /// 重播流程：
 ///   1. tick 1：Shadow VM 重播 → hash 正確 → AllMatch
 ///   2. tick 2：Shadow VM 重播 → hash 不符 → Mismatch { tick: 2 }
-///   checked_ticks = [1, 2]（tick 1 通過 + tick 2 不匹配但已檢查）
+///      checked_ticks = [1, 2]（tick 1 通過 + tick 2 不匹配但已檢查）
 #[test]
 fn mutation_intermediate_state_tamper_detected() {
     let script = compile_test_script();

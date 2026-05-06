@@ -490,7 +490,7 @@ mod tests {
     /// #21: Rhai 原生 f64 型別正確估算為 8 bytes
     #[test]
     fn test_estimate_dynamic_size_f64() {
-        let val = rhai::Dynamic::from(3.14_f64);
+        let val = rhai::Dynamic::from(std::f64::consts::PI);
         assert_eq!(ScopeLimiter::estimate_dynamic_size(&val), 8);
     }
 

@@ -6,7 +6,6 @@
 //! - 1,000 entities: < 0.2ms
 //! - 10,000 entities: < 1.5ms
 
-use bridge_types::deterministic_value::DeterministicValue;
 use bridge_types::ecs_mirror::MirroredEntity;
 use bridge_types::handles::{EntityId, EntityState};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
@@ -77,7 +76,6 @@ criterion_main!(benches);
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn test_generate_test_entities_deterministic() {

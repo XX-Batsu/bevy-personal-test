@@ -19,6 +19,9 @@ use bridge_types::{
 use deterministic::{SoftF32, SoftVec3};
 use rhai::{Dynamic, EvalAltResult, Position};
 
+use crate::bridge_helpers::{
+    ops_err, validate_finite, validate_non_negative_id, validate_positive_id,
+};
 use crate::dynamic_convert::to_rhai_dynamic;
 use crate::handle_registry::HandleRegistry;
 use crate::ops_cost::{OpsCostTable, OpsTracker};
@@ -177,11 +180,6 @@ fn to_dynamic_value(value: &Dynamic) -> Result<DynamicValue, BridgeError> {
     }
 }
 
-/// OpsTracker deduct 錯誤 → Box<EvalAltResult>
-fn ops_err(e: String) -> Box<EvalAltResult> {
-    EvalAltResult::ErrorRuntime(e.into(), Position::NONE).into()
-}
-
 /// BridgeError → Box<EvalAltResult>
 fn bridge_err(e: BridgeError) -> Box<EvalAltResult> {
     EvalAltResult::ErrorRuntime(format!("{:?}", e).into(), Position::NONE).into()
@@ -276,28 +274,6 @@ fn validate_scales(sx: f64, sy: f64, sz: f64) -> Result<(), Box<EvalAltResult>> 
     Ok(())
 }
 
-/// 驗證非負 ID（reject 策略：>= 0，適用 dialog_id/anim_id）
-fn validate_non_negative_id(value: i64, param_name: &str) -> Result<(), Box<EvalAltResult>> {
-    if value < 0 {
-        return Err(Box::new(EvalAltResult::ErrorRuntime(
-            format!("InvalidParameter: {} 必須 >= 0，收到 {}", param_name, value).into(),
-            Position::NONE,
-        )));
-    }
-    Ok(())
-}
-
-/// 驗證正 ID（reject 策略：> 0，適用 sound_id/vfx_id/duration_ms）
-fn validate_positive_id(value: i64, param_name: &str) -> Result<(), Box<EvalAltResult>> {
-    if value <= 0 {
-        return Err(Box::new(EvalAltResult::ErrorRuntime(
-            format!("InvalidParameter: {} 必須 > 0，收到 {}", param_name, value).into(),
-            Position::NONE,
-        )));
-    }
-    Ok(())
-}
-
 /// 驗證 health bar 參數（reject 策略：max > 0, current ∈ [0, max]）
 fn validate_health_bar(current: f64, max: f64) -> Result<(), Box<EvalAltResult>> {
     if !max.is_finite() {
@@ -327,21 +303,6 @@ fn validate_health_bar(current: f64, max: f64) -> Result<(), Box<EvalAltResult>>
             format!(
                 "InvalidParameter: health bar current 必須在 [0, max] 範圍內，收到 current={}, max={}",
                 current, max
-            )
-            .into(),
-            Position::NONE,
-        )));
-    }
-    Ok(())
-}
-
-/// 驗證有限數值（reject 策略：NaN/Inf 檢查，用於 blend weight 前置檢查）
-fn validate_finite(value: f64, param_name: &str) -> Result<(), Box<EvalAltResult>> {
-    if !value.is_finite() {
-        return Err(Box::new(EvalAltResult::ErrorRuntime(
-            format!(
-                "InvalidParameter: {} 必須為有限數值，收到 {}",
-                param_name, value
             )
             .into(),
             Position::NONE,
@@ -1332,15 +1293,16 @@ mod tests {
     fn test_set_rotation_softf32_conversion() {
         let state = make_state_with_mirror();
         let engine = make_engine_with_api(state.clone());
+        let pi_str = std::f64::consts::PI.to_string();
         engine
-            .eval::<()>("set_rotation(1, 1.5, 0.0, 3.14)")
+            .eval::<()>(&format!("set_rotation(1, 1.5, 0.0, {pi_str})"))
             .unwrap();
         let events = state.borrow_mut().event_queue.drain();
         assert_eq!(
             events[0],
             BridgeEvent::SetRotation {
                 eid: EntityId(1),
-                euler: to_soft_vec3(1.5, 0.0, 3.14),
+                euler: to_soft_vec3(1.5, 0.0, std::f64::consts::PI),
             }
         );
     }

@@ -198,8 +198,8 @@ pub fn encrypt_outgoing(msg: &NetMessage) -> Result<Vec<u8>, HandshakeError> {
         let plaintext = bincode::serialize(msg).expect("NetMessage 序列化不應失敗");
         let seq = state.send_seq;
         // key: &Zeroizing<[u8; 32]>，deref coercion → &[u8; 32]
-        let frame =
-            crypto::encrypt_frame_aad(&plaintext, key, seq).expect("加密不應失敗（金鑰長度已保證）");
+        let frame = crypto::encrypt_frame_aad(&plaintext, key, seq)
+            .expect("加密不應失敗（金鑰長度已保證）");
         state.send_seq += 1;
         Ok(frame)
     })
@@ -231,20 +231,6 @@ pub fn decrypt_incoming(data: &[u8]) -> Result<NetMessage, HandshakeError> {
         bincode::deserialize::<NetMessage>(&plaintext)
             .map_err(|_| HandshakeError::DeserializationFailed)
     })
-}
-
-#[cfg(test)]
-pub(crate) fn reset_state_for_test() {
-    STATE.with(|s| {
-        let mut state = s.borrow_mut();
-        state.key_pair = None;
-        state.client_public_key = None;
-        state.completed = false;
-        state.retry_count = 0;
-        state.session_key = None;
-        state.send_seq = 0;
-        state.recv_seq = 0;
-    });
 }
 
 #[cfg(test)]

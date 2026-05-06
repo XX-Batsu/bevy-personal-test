@@ -366,8 +366,6 @@ mod tests {
         // 使用空簽章（測試 BytecodeTooLarge 先於簽章驗證）
         // 注意：reassemble 實作先驗證大小再驗簽
         let large_data = vec![0u8; MAX_BYTECODE_SIZE + 1];
-        let chunk_size = CHUNK_SIZE;
-        let total = ((large_data.len() + chunk_size - 1) / chunk_size) as u16;
 
         // 此測試需要實際的 split（才有有效簽章），否則簽章先失敗
         // 故此測試用假資料直接驗證 BytecodeTooLarge

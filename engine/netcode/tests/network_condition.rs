@@ -62,7 +62,7 @@ fn latency_to_ticks(latency_ms: u64) -> u64 {
         0
     } else {
         // ceil(latency / 16.67)
-        (latency_ms + 16) / 17
+        latency_ms.div_ceil(17)
     }
 }
 

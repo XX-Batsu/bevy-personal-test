@@ -247,7 +247,7 @@ mod tests {
             let v = rng.gen_soft_f32();
             let f = v.to_f64();
             assert!(
-                f >= 0.0 && f < 1.0,
+                (0.0..1.0).contains(&f),
                 "gen_soft_f32() 產生了超出 [0.0, 1.0) 範圍的值: {}",
                 f
             );

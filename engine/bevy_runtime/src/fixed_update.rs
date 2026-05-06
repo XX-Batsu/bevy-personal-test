@@ -153,7 +153,7 @@ mod tests {
         app.update(); // Frame 1: 累積 50ms
         let count = app.world().resource::<FixedTickCounter>().count;
         assert!(
-            count >= 2 && count <= 3,
+            (2..=3).contains(&count),
             "50ms 邊界應觸發 2-3 tick，實際: {count}"
         );
     }

@@ -228,7 +228,7 @@ mod tests {
 
     #[test]
     fn test_from_f32_to_bits_round_trip() {
-        let v = SoftF32::from_f32(3.14);
+        let v = SoftF32::from_f32(std::f32::consts::PI);
         let restored = SoftF32::from_bits(v.to_bits());
         assert_eq!(v, restored);
     }
@@ -299,7 +299,11 @@ mod tests {
     fn test_partial_ord_equal() {
         let a = SoftF32::from_f32(2.5);
         let b = SoftF32::from_f32(2.5);
-        assert!(!(a < b) && !(a > b));
+        assert!(
+            a.partial_cmp(&b)
+                .is_some_and(|ord| ord == std::cmp::Ordering::Equal),
+            "相等的 SoftF32 值應在 partial_cmp 中相等"
+        );
     }
 
     #[test]
@@ -341,7 +345,7 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let v = SoftF32::from_f32(3.14);
+        let v = SoftF32::from_f32(std::f32::consts::PI);
         let s = format!("{}", v);
         assert!(s.contains("3.14"), "Display 輸出 '{}' 應包含 '3.14'", s);
     }
@@ -368,7 +372,7 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let v = SoftF32::from_f32(3.14);
+        let v = SoftF32::from_f32(std::f32::consts::PI);
         let bytes = bincode::serialize(&v).unwrap();
         let restored: SoftF32 = bincode::deserialize(&bytes).unwrap();
         assert_eq!(v.to_bits(), restored.to_bits());
@@ -422,8 +426,8 @@ mod tests {
 
     #[test]
     fn test_from_f64_round_trip() {
-        let v = SoftF32::from_f64(3.14);
-        let diff = (v.to_f64() - 3.14_f64).abs();
+        let v = SoftF32::from_f64(std::f64::consts::PI);
+        let diff = (v.to_f64() - std::f64::consts::PI).abs();
         assert!(diff < 0.001, "f64 round-trip 誤差過大: {}", diff);
     }
 

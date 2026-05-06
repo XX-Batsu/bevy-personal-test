@@ -263,7 +263,7 @@ mod tests {
     // ─── Mock 基礎設施 ───────────────────────────────────────────────
 
     thread_local! {
-        static CALL_LOG: RefCell<Vec<String>> = RefCell::new(Vec::new());
+        static CALL_LOG: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
     }
 
     fn log_call(name: &str) {
@@ -296,19 +296,19 @@ mod tests {
         }
 
         fn call_on_event_all(&self, _event: &str) {
-            for ((prio, _id), _) in &self.script_ids {
+            for (prio, _id) in self.script_ids.keys() {
                 log_call(&format!("on_event_prio_{}", prio));
             }
         }
 
         fn call_on_input_all(&self, _input: &str) {
-            for ((prio, _id), _) in &self.script_ids {
+            for (prio, _id) in self.script_ids.keys() {
                 log_call(&format!("on_input_prio_{}", prio));
             }
         }
 
         fn call_on_tick_all(&self) {
-            for ((prio, _id), _) in &self.script_ids {
+            for (prio, _id) in self.script_ids.keys() {
                 log_call(&format!("on_tick_prio_{}", prio));
             }
         }
@@ -362,7 +362,7 @@ mod tests {
         // 同 priority=0，id="b" 與 "a"，應按字母序 "a" → "b"
         let mgr = MockScriptManager::new(&[(0, "b"), (0, "a")]);
         // 直接按 BTreeMap 順序記錄 script_id
-        for ((_prio, id), _) in &mgr.script_ids {
+        for (_prio, id) in mgr.script_ids.keys() {
             log_call(&format!("on_event_{}", id));
         }
 

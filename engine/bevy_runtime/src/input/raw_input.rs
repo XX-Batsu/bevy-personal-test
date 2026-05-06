@@ -30,9 +30,11 @@ mod tests {
 
     #[test]
     fn clone_產生獨立副本() {
-        let mut input = RawPlayerInput::default();
-        input.keys_pressed = 0b1010;
-        input.frame_number = 42;
+        let input = RawPlayerInput {
+            keys_pressed: 0b1010,
+            frame_number: 42,
+            ..Default::default()
+        };
         let cloned = input.clone();
         assert_eq!(cloned.keys_pressed, 0b1010);
         assert_eq!(cloned.frame_number, 42);

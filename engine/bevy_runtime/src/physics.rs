@@ -363,7 +363,7 @@ mod tests {
         for _ in 0..60 {
             app.update();
             let events = app.world().resource::<CollisionEvents>();
-            for (_pair, state) in &events.events {
+            for state in events.events.values() {
                 if state.started {
                     found_started = true;
                 }
@@ -420,7 +420,7 @@ mod tests {
         for _ in 0..60 {
             app.update();
             let events = app.world().resource::<CollisionEvents>();
-            for (_pair, state) in &events.events {
+            for state in events.events.values() {
                 if state.started {
                     found_started = true;
                 }

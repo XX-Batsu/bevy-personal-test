@@ -20,6 +20,12 @@ jobs:
           shared-key: "ci"
           key: ${{ runner.os }}-rust-${{ hashFiles('rust-toolchain.toml') }}
 
+      - name: 安裝 just
+        uses: extractions/setup-just@v2
+
+      - name: 下載字型
+        run: just download-fonts
+
       - name: 格式檢查
         run: cargo fmt --check
 
@@ -64,6 +70,12 @@ jobs:
         with:
           shared-key: "ci"
           key: ${{ runner.os }}-rust-${{ hashFiles('rust-toolchain.toml') }}
+
+      - name: 安裝 just
+        uses: extractions/setup-just@v2
+
+      - name: 下載字型
+        run: just download-fonts
 
       - name: 安裝 wasm-opt
         run: |

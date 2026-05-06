@@ -311,7 +311,7 @@ fn test_to_rhai_dynamic_int() {
 
 #[test]
 fn test_to_rhai_dynamic_float() {
-    let sf = SoftF32::from_f64(3.14);
+    let sf = SoftF32::from_f64(std::f64::consts::PI);
     let det = DeterministicValue::Float(sf);
     let dyn_val = to_rhai_dynamic(&det);
     let f = dyn_val.clone_cast::<f64>();
@@ -346,7 +346,7 @@ fn test_to_rhai_dynamic_str() {
 fn test_dynamic_convert_round_trip_all_variants() {
     let cases: Vec<rhai::Dynamic> = vec![
         rhai::Dynamic::from(42_i64),
-        rhai::Dynamic::from(3.14_f64),
+        rhai::Dynamic::from(std::f64::consts::PI),
         rhai::Dynamic::from(true),
         rhai::Dynamic::UNIT,
         rhai::Dynamic::from("round-trip".to_string()),

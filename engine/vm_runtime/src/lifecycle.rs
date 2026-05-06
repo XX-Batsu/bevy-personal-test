@@ -524,7 +524,7 @@ mod tests {
         let inst1 = ScriptInstance::new("b_script".into(), ast1, 10);
         let inst2 = ScriptInstance::new("a_script".into(), ast2, 5);
 
-        let mut scripts = vec![inst1, inst2];
+        let mut scripts = [inst1, inst2];
         scripts.sort_by(|a, b| (a.priority, &a.script_id).cmp(&(b.priority, &b.script_id)));
 
         assert_eq!(scripts[0].priority, 5);
@@ -812,7 +812,7 @@ mod tests {
         let inst_b = ScriptInstance::new("b".into(), ast.clone(), 5);
         let inst_a = ScriptInstance::new("a".into(), ast, 5);
 
-        let mut scripts = vec![inst_b, inst_a];
+        let mut scripts = [inst_b, inst_a];
         scripts.sort_by(|a, b| (a.priority, &a.script_id).cmp(&(b.priority, &b.script_id)));
         assert_eq!(scripts[0].script_id, "a");
         assert_eq!(scripts[1].script_id, "b");

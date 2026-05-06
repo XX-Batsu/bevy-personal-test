@@ -581,7 +581,7 @@ mod tests {
     fn step_full_with_past_tick_returns_tick_mismatch() {
         let mut sim = make_sim();
         sim.step_full(&BTreeMap::new()).unwrap(); // current_tick = 1
-        // 輸入帶舊 tick=0（落後一幀）
+                                                  // 輸入帶舊 tick=0（落後一幀）
         let stale_input = PlayerInput {
             player_id: EntityId(1),
             input_type: 0,
@@ -716,7 +716,7 @@ mod tests {
         sim.add_player(EntityId(10)); // joined_at_tick = 0
         sim.step_full(&BTreeMap::new()).unwrap(); // tick = 1
         sim.add_player(EntityId(10)); // 重複加入，應覆蓋 joined_at_tick = 1
-        // player_info() 應存在且只有一筆
+                                      // player_info() 應存在且只有一筆
         assert!(sim.player_info(&EntityId(10)).is_some());
         assert_eq!(sim.players.len(), 1);
         // joined_at_tick 更新為第二次加入時的 tick

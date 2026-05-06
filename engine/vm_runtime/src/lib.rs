@@ -32,6 +32,7 @@
 
 pub mod atomic_update;
 pub mod bridge_api;
+pub mod bridge_helpers;
 pub mod bytecode_loader;
 pub mod camera_module;
 #[cfg(feature = "debug-mode")]
@@ -116,14 +117,15 @@ mod smoke {
     #[test]
     fn phase5_bytecode_load_sig_exists() {
         // 驗證 bytecode_compiler::load 符號可達（參數名: verifying_key, decryption_key）
-        let _: fn(
+        type BytecodeLoadFn = fn(
             &[u8],
             &[u8; 32],
             &[u8; 32],
         ) -> Result<
             (bytecode_compiler::ScriptMetadata, rhai::AST),
             bytecode_compiler::LoadError,
-        > = bytecode_compiler::load;
+        >;
+        let _: BytecodeLoadFn = bytecode_compiler::load;
     }
 
     #[test]

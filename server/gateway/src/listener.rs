@@ -24,14 +24,17 @@ use crate::config::GatewayConfig;
 /// 每個活躍 session 的 outbound channel sender（傳送已加密 frame）
 type OutboundSender = mpsc::Sender<Vec<u8>>;
 
+/// 單一 session 的內部記錄：(session_key, outbound sender)。
+///
+/// `Zeroizing` 確保 session_key 在 drop 時清零記憶體。
+type SessionEntry = (Zeroizing<[u8; 32]>, OutboundSender);
+
 /// 活躍連線的全域 registry（session_id → (session_key, outbound sender)）
 ///
 /// Layer 2 game loop 透過此結構取得 session 資訊並廣播 StateUpdate。
 /// 握手完成後由 handle_ws_connection 登記；斷線時自動移除。
 #[derive(Clone, Default)]
-pub struct ClientRegistry(
-    Arc<Mutex<HashMap<u64, (Zeroizing<[u8; 32]>, OutboundSender)>>>,
-);
+pub struct ClientRegistry(Arc<Mutex<HashMap<u64, SessionEntry>>>);
 
 impl ClientRegistry {
     pub fn new() -> Self {
@@ -187,11 +190,7 @@ async fn handle_ws_connection(mut socket: WebSocket, registry: ClientRegistry) {
     let (mut ws_write, mut ws_read) = socket.split();
     tokio::spawn(async move {
         while let Some(frame) = outbound_rx.recv().await {
-            if ws_write
-                .send(Message::Binary(frame.into()))
-                .await
-                .is_err()
-            {
+            if ws_write.send(Message::Binary(frame.into())).await.is_err() {
                 break;
             }
         }
@@ -229,8 +228,7 @@ async fn handle_ws_connection(mut socket: WebSocket, registry: ClientRegistry) {
                 match net_msg {
                     NetMessage::Ping { timestamp } => {
                         let pong = NetMessage::Pong { timestamp };
-                        let pong_bytes =
-                            bincode::serialize(&pong).expect("Pong 序列化不應失敗");
+                        let pong_bytes = bincode::serialize(&pong).expect("Pong 序列化不應失敗");
                         let pong_frame =
                             crypto::encrypt_frame_aad(&pong_bytes, &session_key, send_seq)
                                 .expect("Pong 加密不應失敗");
@@ -527,8 +525,7 @@ mod tests {
         // 送竄改的密文（auth tag 不符）
         let fake_frame = {
             // 使用錯誤 key 且竄改 frame → server decrypt_frame_aad 應失敗
-            let mut f =
-                crypto::encrypt_frame_aad(b"legitimate message", &[0x42u8; 32], 0).unwrap();
+            let mut f = crypto::encrypt_frame_aad(b"legitimate message", &[0x42u8; 32], 0).unwrap();
             *f.last_mut().unwrap() ^= 0xFF;
             f
         };

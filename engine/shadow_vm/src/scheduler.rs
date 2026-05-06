@@ -89,7 +89,7 @@ mod tests {
         // 注：as f64 計算平均值僅限測試程式碼，非遊戲邏輯，不違反 Determinism Rules
         let avg = intervals.iter().sum::<u64>() as f64 / intervals.len() as f64;
         assert!(
-            avg >= 35.0 && avg <= 55.0,
+            (35.0..=55.0).contains(&avg),
             "平均抽樣間隔 {} 應在 [35, 55] 幀內（規格 [30, 60]，3σ 統計邊界）",
             avg
         );
@@ -101,7 +101,7 @@ mod tests {
         for seed in 0..50u64 {
             let mut scheduler = SamplingScheduler::new(seed);
             let first = (0..200u64).find(|&t| scheduler.should_sample(t)).unwrap();
-            assert!(first >= 30 && first <= 60, "seed={seed}, first={first}");
+            assert!((30..=60).contains(&first), "seed={seed}, first={first}");
         }
     }
 

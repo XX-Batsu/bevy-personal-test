@@ -134,7 +134,11 @@ pub fn gen_key(prefix: &Path) -> anyhow::Result<()> {
     rand::rngs::OsRng.fill_bytes(&mut aes_key);
     let aes_path = {
         let mut p = prefix.to_path_buf();
-        let name = p.file_name().unwrap_or_default().to_string_lossy().to_string();
+        let name = p
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
         p.set_file_name(format!("{name}.aes.key"));
         p
     };
@@ -150,7 +154,11 @@ pub fn gen_key(prefix: &Path) -> anyhow::Result<()> {
 
     let priv_path = {
         let mut p = prefix.to_path_buf();
-        let name = p.file_name().unwrap_or_default().to_string_lossy().to_string();
+        let name = p
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
         p.set_file_name(format!("{name}.ed25519.key"));
         p
     };
@@ -160,7 +168,11 @@ pub fn gen_key(prefix: &Path) -> anyhow::Result<()> {
 
     let pub_path = {
         let mut p = prefix.to_path_buf();
-        let name = p.file_name().unwrap_or_default().to_string_lossy().to_string();
+        let name = p
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
         p.set_file_name(format!("{name}.ed25519.pub"));
         p
     };
@@ -227,7 +239,7 @@ mod tests {
     fn test_load_key_file_wrong_length() {
         let d = temp_dir();
         let p = d.path().join("short.key");
-        std::fs::write(&p, &[0u8; 16]).unwrap();
+        std::fs::write(&p, [0u8; 16]).unwrap();
         let e = load_key_file(&p).unwrap_err().to_string();
         assert!(e.contains("32") || e.contains("長度"), "{e}");
     }
@@ -236,7 +248,7 @@ mod tests {
     fn test_load_key_file_valid() {
         let d = temp_dir();
         let p = d.path().join("valid.key");
-        std::fs::write(&p, &[0xABu8; 32]).unwrap();
+        std::fs::write(&p, [0xABu8; 32]).unwrap();
         assert_eq!(load_key_file(&p).unwrap(), [0xABu8; 32]);
     }
 
@@ -284,7 +296,7 @@ mod tests {
     fn test_decrypt_file_truncated() {
         let d = temp_dir();
         let p = d.path().join("trunc.enc");
-        std::fs::write(&p, &[0u8; 20]).unwrap(); // < nonce(12)+tag(16)=28
+        std::fs::write(&p, [0u8; 20]).unwrap(); // < nonce(12)+tag(16)=28
         assert!(decrypt_file(&p, &d.path().join("o.dec"), &test_key()).is_err());
     }
 
@@ -381,13 +393,13 @@ mod tests {
         let f = d.path().join("data.wasm");
         std::fs::write(&f, b"wasm binary content").unwrap();
         let kp = d.path().join("ed25519.priv");
-        std::fs::write(&kp, &seed).unwrap();
+        std::fs::write(&kp, seed).unwrap();
         sign_file(&f, &kp).unwrap();
         let sig = d.path().join("data.wasm.sig");
         assert!(sig.exists());
         assert_eq!(std::fs::read(&sig).unwrap().len(), 64);
         let pp = d.path().join("ed25519.pub");
-        std::fs::write(&pp, &pk).unwrap();
+        std::fs::write(&pp, pk).unwrap();
         assert!(verify_file(&f, &pp, &sig).is_ok());
     }
 
@@ -398,12 +410,12 @@ mod tests {
         let f = d.path().join("data.wasm");
         std::fs::write(&f, b"original").unwrap();
         let kp = d.path().join("ed25519.priv");
-        std::fs::write(&kp, &seed).unwrap();
+        std::fs::write(&kp, seed).unwrap();
         sign_file(&f, &kp).unwrap();
         let sig = d.path().join("data.wasm.sig");
         std::fs::write(&f, b"tampered").unwrap();
         let pp = d.path().join("ed25519.pub");
-        std::fs::write(&pp, &pk).unwrap();
+        std::fs::write(&pp, pk).unwrap();
         assert!(verify_file(&f, &pp, &sig).is_err());
     }
 
@@ -414,11 +426,11 @@ mod tests {
         let f = d.path().join("data.wasm");
         std::fs::write(&f, b"content").unwrap();
         let kp = d.path().join("ed25519.priv");
-        std::fs::write(&kp, &seed).unwrap();
+        std::fs::write(&kp, seed).unwrap();
         sign_file(&f, &kp).unwrap();
         let sig = d.path().join("data.wasm.sig");
         let wp = d.path().join("wrong.pub");
-        std::fs::write(&wp, &[0xFFu8; 32]).unwrap();
+        std::fs::write(&wp, [0xFFu8; 32]).unwrap();
         assert!(verify_file(&f, &wp, &sig).is_err());
     }
 
@@ -429,9 +441,9 @@ mod tests {
         let f = d.path().join("data.wasm");
         std::fs::write(&f, b"content").unwrap();
         let pp = d.path().join("ed25519.pub");
-        std::fs::write(&pp, &pk).unwrap();
+        std::fs::write(&pp, pk).unwrap();
         let sig = d.path().join("data.wasm.sig");
-        std::fs::write(&sig, &[0u8; 32]).unwrap(); // 不足 64
+        std::fs::write(&sig, [0u8; 32]).unwrap(); // 不足 64
         assert!(verify_file(&f, &pp, &sig).is_err());
     }
 }

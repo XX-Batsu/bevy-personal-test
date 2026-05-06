@@ -18,53 +18,11 @@
 //! 先 deduct 確保即使參數無效，呼叫本身仍消耗 budget，反覆呼叫會在 50K ops 內耗盡。
 
 use bridge_types::CameraBridgeOp;
-use rhai::{EvalAltResult, Position};
+use rhai::EvalAltResult;
 
 use crate::bridge_api::{BridgeState, SharedState};
+use crate::bridge_helpers::{ops_err, validate_finite, validate_handle};
 use crate::ops_cost::OpsCostTable;
-
-// ── 內部輔助 ──────────────────────────────────────────────────────
-//
-// TODO（Phase B 收尾或後續 housekeeping）: `check_finite` 與 `ops_err`
-// 在 `bridge_api.rs` 已有等價實作（`validate_finite` line 305、`ops_err`
-// line 147）。應把 bridge_api 內這兩個 helper 升級為 `pub(crate)` 並讓
-// `camera_module` 共用，避免錯誤訊息字串雙份維護。
-// 同時：`check_handle_range` 對齊 `bridge_api` 既有 `validate_*_id` 命名
-// 慣例，建議改名為 `validate_handle` 並考慮搬到 bridge_api（其他未來
-// bridge — audio handle / vfx handle — 也會需要相同 i64→u32 saturating
-// bounded 轉換）。
-//
-// 留 TODO 不立即動手以縮小本次變更 scope。
-
-fn invalid_param(msg: String) -> Box<EvalAltResult> {
-    Box::new(EvalAltResult::ErrorRuntime(msg.into(), Position::NONE))
-}
-
-fn ops_err(msg: String) -> Box<EvalAltResult> {
-    invalid_param(msg)
-}
-
-/// NaN / Inf 檢查；違反則 reject 為 `InvalidParameter`。
-fn check_finite(value: f64, name: &str) -> Result<(), Box<EvalAltResult>> {
-    if !value.is_finite() {
-        return Err(invalid_param(format!(
-            "InvalidParameter: {} 必須為有限數值，收到 {}",
-            name, value
-        )));
-    }
-    Ok(())
-}
-
-/// handle 範圍檢查：必須在 `0..=u32::MAX`。
-fn check_handle_range(handle: i64) -> Result<u32, Box<EvalAltResult>> {
-    if !(0..=(u32::MAX as i64)).contains(&handle) {
-        return Err(invalid_param(format!(
-            "InvalidParameter: handle 必須在 [0, u32::MAX]，收到 {}",
-            handle
-        )));
-    }
-    Ok(handle as u32)
-}
 
 // ── 5 個 register 函式 ──
 
@@ -99,16 +57,16 @@ fn register_camera_shake(engine: &mut rhai::Engine, state: SharedState<BridgeSta
                 .map_err(ops_err)?;
 
             // 步驟 2：NaN / Inf 檢查
-            check_finite(trauma, "trauma")?;
-            check_finite(dir_x, "dir_x")?;
-            check_finite(dir_y, "dir_y")?;
-            check_finite(max_strength, "max_strength")?;
-            check_finite(decay_rate, "decay_rate")?;
-            check_finite(direction_bias, "direction_bias")?;
-            check_finite(perpendicular_damping, "perpendicular_damping")?;
+            validate_finite(trauma, "trauma")?;
+            validate_finite(dir_x, "dir_x")?;
+            validate_finite(dir_y, "dir_y")?;
+            validate_finite(max_strength, "max_strength")?;
+            validate_finite(decay_rate, "decay_rate")?;
+            validate_finite(direction_bias, "direction_bias")?;
+            validate_finite(perpendicular_damping, "perpendicular_damping")?;
 
             // 步驟 3：handle 範圍檢查
-            let handle = check_handle_range(handle)?;
+            let handle = validate_handle(handle, "handle")?;
 
             // 步驟 4：clamp / saturate
             let trauma = (trauma as f32).clamp(0.0, 1.0);
@@ -166,14 +124,14 @@ fn register_camera_push_override(engine: &mut rhai::Engine, state: SharedState<B
                 .map_err(ops_err)?;
 
             // 步驟 2：NaN / Inf 檢查（zoom / duration 允許 sentinel，不要求正數，但仍須 finite）
-            check_finite(x, "x")?;
-            check_finite(y, "y")?;
-            check_finite(zoom, "zoom")?;
-            check_finite(speed, "speed")?;
-            check_finite(duration, "duration")?;
+            validate_finite(x, "x")?;
+            validate_finite(y, "y")?;
+            validate_finite(zoom, "zoom")?;
+            validate_finite(speed, "speed")?;
+            validate_finite(duration, "duration")?;
 
             // 步驟 3：handle 範圍檢查
-            let handle = check_handle_range(handle)?;
+            let handle = validate_handle(handle, "handle")?;
 
             // 步驟 4：priority saturating clamp（避免 i64→i32 wrap-around）
             let priority: i32 = priority.clamp(i32::MIN as i64, i32::MAX as i64) as i32;
@@ -218,7 +176,7 @@ fn register_camera_pop_override(engine: &mut rhai::Engine, state: SharedState<Br
                 .map_err(ops_err)?;
 
             // 步驟 3：handle 範圍檢查
-            let handle = check_handle_range(handle)?;
+            let handle = validate_handle(handle, "handle")?;
 
             // 步驟 5：push op
             st.camera_op_queue
@@ -248,7 +206,7 @@ fn register_camera_clear_overrides(engine: &mut rhai::Engine, state: SharedState
                 .map_err(ops_err)?;
 
             // 步驟 3：handle 範圍檢查
-            let handle = check_handle_range(handle)?;
+            let handle = validate_handle(handle, "handle")?;
 
             // 步驟 5：push op
             st.camera_op_queue
@@ -278,7 +236,7 @@ fn register_camera_clear_shakes(engine: &mut rhai::Engine, state: SharedState<Br
                 .map_err(ops_err)?;
 
             // 步驟 3：handle 範圍檢查
-            let handle = check_handle_range(handle)?;
+            let handle = validate_handle(handle, "handle")?;
 
             // 步驟 5：push op
             st.camera_op_queue

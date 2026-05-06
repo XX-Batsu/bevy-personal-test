@@ -318,7 +318,7 @@ mod tests {
     #[test]
     fn test_multiple_scripts_priority_sort() {
         let engine = Engine::new();
-        let mut instances = vec![
+        let mut instances = [
             BytecodeLoader::load_debug("fn tick(dt) {}", "a", 2, &engine).unwrap(),
             BytecodeLoader::load_debug("fn tick(dt) {}", "b", 0, &engine).unwrap(),
             BytecodeLoader::load_debug("fn tick(dt) {}", "c", 1, &engine).unwrap(),

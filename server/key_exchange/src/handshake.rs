@@ -317,7 +317,7 @@ mod tests {
 
         // 解密 encrypted_session_info
         let decrypted = decrypt(
-            &*session_key,
+            &session_key,
             &payload.nonce,
             &payload.encrypted_session_info,
             &[],
@@ -362,7 +362,7 @@ mod tests {
         }
 
         let result = decrypt(
-            &*session_key,
+            &session_key,
             &payload.nonce,
             &payload.encrypted_session_info,
             &[],

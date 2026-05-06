@@ -226,6 +226,7 @@ mod tests {
     use std::rc::Rc;
 
     /// 建立帶有記錄功能的 callback，回傳 (callback, 記錄)
+    #[allow(clippy::type_complexity)]
     fn tracking_callback() -> (Box<dyn Fn(u8, &str)>, Rc<RefCell<Vec<(u8, String)>>>) {
         let log = Rc::new(RefCell::new(Vec::new()));
         let log_clone = log.clone();

@@ -277,7 +277,7 @@ mod tests {
             .count();
         // 5% +/- 2%
         assert!(
-            dropped >= 300 && dropped <= 700,
+            (300..=700).contains(&dropped),
             "預期 ~5% 丟包，實際 {dropped}/{total}"
         );
     }

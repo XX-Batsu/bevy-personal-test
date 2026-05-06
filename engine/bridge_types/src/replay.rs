@@ -98,7 +98,7 @@ mod tests {
         let input = PlayerInput {
             player_id: EntityId(1),
             input_type: 1,
-            data: DeterministicValue::Float(SoftF32::from_f32(3.14)),
+            data: DeterministicValue::Float(SoftF32::from_f32(std::f32::consts::PI)),
             tick: 1,
         };
         let bytes = bincode::serialize(&input).unwrap();

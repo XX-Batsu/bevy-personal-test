@@ -104,7 +104,7 @@ fn benchmark_single_frame_replay_under_5ms() {
 /// 執行方式：
 /// - macOS: `/usr/bin/time -l cargo test -p shadow_vm -- memory_usage_under_32mb --ignored`
 /// - Linux: `/usr/bin/time -v cargo test -p shadow_vm -- memory_usage_under_32mb --ignored`
-/// 觀察 "maximum resident set size" 是否 < 32 MB
+///   觀察 "maximum resident set size" 是否 < 32 MB
 #[test]
 #[ignore = "手動執行：需要 /usr/bin/time 或 valgrind 量測 RSS"]
 fn memory_usage_under_32mb() {

@@ -21,7 +21,13 @@ mod tests {
     use zeroize::Zeroize;
 
     /// 驗證所有 re-export 項皆可直接存取（編譯期保證）
+    ///
+    /// **設計決策**：刻意以 fn pointer type assertion 形式撰寫，除驗證 re-export
+    /// 可達性外，亦保證每個函式的**簽名與預期一致**。對 crypto 這類安全敏感模組，
+    /// 簽名變更若意外發生（例如改參數順序）此測試會編譯失敗，提供額外防護。
+    /// 因此為此測試 opt-out clippy::type_complexity（簽名複雜度為設計意圖，非疏失）。
     #[test]
+    #[allow(clippy::type_complexity)]
     fn test_reexport_availability() {
         // 若任一 re-export 遺漏，此測試無法編譯
         let _: fn(&[u8; 32], &[u8]) -> Result<Vec<u8>, CryptoError> = aes_encrypt;
@@ -177,7 +183,13 @@ mod tests {
     }
 
     /// 驗證 frame 模組 re-export 可直接存取（編譯期保證）
+    ///
+    /// **設計決策**：刻意以 fn pointer type assertion 形式撰寫，除驗證 re-export
+    /// 可達性外，亦保證每個函式的**簽名與預期一致**。對 crypto 這類安全敏感模組，
+    /// 簽名變更若意外發生（例如改參數順序）此測試會編譯失敗，提供額外防護。
+    /// 因此為此測試 opt-out clippy::type_complexity（簽名複雜度為設計意圖，非疏失）。
     #[test]
+    #[allow(clippy::type_complexity)]
     fn test_frame_reexport_availability() {
         let _: fn(&[u8], &[u8; 32]) -> Result<Vec<u8>, FrameError> = encrypt_frame;
         let _: fn(&[u8], &[u8; 32]) -> Result<Vec<u8>, FrameError> = decrypt_frame;

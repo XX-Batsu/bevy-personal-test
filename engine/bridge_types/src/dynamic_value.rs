@@ -30,7 +30,7 @@ mod tests {
     fn dynamic_value_bincode_round_trip() {
         let values = vec![
             DynamicValue::Int(42),
-            DynamicValue::Float(3.14),
+            DynamicValue::Float(std::f64::consts::PI),
             DynamicValue::Bool(true),
             DynamicValue::String("hello".to_string()),
             DynamicValue::Unit,

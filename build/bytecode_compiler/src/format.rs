@@ -583,8 +583,12 @@ mod tests {
         // 破壞 metadata 區段（偏移 8 開始）使 bincode 無法反序列化
         let metadata_len = u16::from_le_bytes([bytecode[6], bytecode[7]]) as usize;
         if metadata_len > 0 {
-            for i in HEADER_FIXED_SIZE..HEADER_FIXED_SIZE + metadata_len {
-                bytecode[i] = 0xFF;
+            for byte in bytecode
+                .iter_mut()
+                .skip(HEADER_FIXED_SIZE)
+                .take(metadata_len)
+            {
+                *byte = 0xFF;
             }
         }
         let result = load(&bytecode, &verify_key, &enc_key);

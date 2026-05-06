@@ -76,7 +76,7 @@ mod tests {
 
     #[test]
     fn test_replay_decompression_source() {
-        let io_err = std::io::Error::new(std::io::ErrorKind::Other, "test");
+        let io_err = std::io::Error::other("test");
         let err = ReplayError::DecompressionFailed(io_err);
         assert!(err.source().is_some());
     }
