@@ -15,6 +15,13 @@ pub const DEFAULT_ZOOM_MAX: f32 = 1440.0;
 pub const DEFAULT_ZOOM_SCROLL_SPEED: f32 = 60.0;
 pub const DEFAULT_ZOOM_SPEED: f32 = 8.0;
 pub const DEFAULT_CINEMATIC_SPEED: f32 = 5.0;
+/// 攝影機正交投影 viewport 高度（world units）的框架預設值。
+///
+/// 此為 framework 中性 default，**不**綁定特定螢幕解析度；遊戲層可透過
+/// `Projection::Orthographic` 的 `ScalingMode::FixedVertical { viewport_height }`
+/// 或 `CameraZoom { current, target, .. }` 在 spawn 時直接覆蓋。
+///
+/// 建議區間：300–2000（典型 2D 動作遊戲）；過小會造成可視範圍不足，過大則 zoom 響應遲緩。
 pub const DEFAULT_VIEWPORT_HEIGHT: f32 = 720.0;
 
 // ── Shake 常數（framework 中性，無遊戲語意） ──────────────────────────────

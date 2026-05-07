@@ -439,7 +439,6 @@ impl Plugin for AssetDecryptionPlugin {
         #[cfg(feature = "plaintext-assets")]
         {
             tracing::info!("plaintext-assets 模式：跳過資產解密");
-            return;
         }
         #[cfg(not(feature = "plaintext-assets"))]
         {

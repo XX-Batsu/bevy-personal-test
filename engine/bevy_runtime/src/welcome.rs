@@ -3,6 +3,8 @@
 use bevy::prelude::*;
 use bevy::render::camera::ScalingMode;
 
+use crate::camera::components::DEFAULT_VIEWPORT_HEIGHT;
+
 /// 遊戲主狀態機。Welcome 為初始狀態（#[default]），InGame 保留供後續使用。
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub enum AppState {
@@ -45,13 +47,14 @@ fn spawn_welcome_screen(
     // Native/測試：AssetServer 從檔案系統載入（MinimalPlugins 下 fallback default handle）。
     let cjk_font = load_cjk_font(asset_server.as_deref(), font_assets.as_deref_mut());
 
-    // Camera2d 固定 720 world units 高（對應 16:9 → 1280 wide）。
+    // Camera2d 採 framework 預設 viewport 高度（DEFAULT_VIEWPORT_HEIGHT，world units）。
     // ScalingMode::FixedVertical 確保：在任何視窗尺寸下，文字都佔畫面相同比例。
+    // 遊戲層若需自訂 welcome 畫面尺寸，可改 spawn 自訂 Camera2d 並覆蓋 viewport_height。
     commands.spawn((
         Camera2d,
         Projection::Orthographic(OrthographicProjection {
             scaling_mode: ScalingMode::FixedVertical {
-                viewport_height: 720.0,
+                viewport_height: DEFAULT_VIEWPORT_HEIGHT,
             },
             ..OrthographicProjection::default_2d()
         }),
