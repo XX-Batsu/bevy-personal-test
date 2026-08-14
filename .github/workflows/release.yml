@@ -54,17 +54,7 @@ jobs:
       # native 於執行期由 AssetServer 載入，故同時打包進封存檔。
       - name: 下載並子集化 CJK 字型
         shell: bash
-        run: |
-          mkdir -p client/js/assets/fonts
-          dst=client/js/assets/fonts/NotoSansTC-Regular.ttf
-          curl -fL -o "$dst" \
-            https://github.com/notofonts/noto-cjk/raw/main/Sans/OTF/TraditionalChinese/NotoSansCJKtc-Regular.otf
-          python3 -m pip install --user --quiet fonttools \
-            || python3 -m pip install --user --quiet --break-system-packages fonttools
-          python3 -m fontTools.subset "$dst" \
-            --text-file=build/font-chars.txt \
-            --output-file="$dst" \
-            --no-hinting
+        run: bash tools/ci_fonts.sh
 
       - name: 建置 native demo
         run: cargo build --release --target ${{ matrix.target }} --package bevy_runtime --example native_dev

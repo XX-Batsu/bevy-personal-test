@@ -44,18 +44,7 @@ jobs:
       # 字型透過 include_bytes! 在編譯期嵌入 WASM，必須先就位。
       # 子集化（build/font-chars.txt）將 ~16 MB 完整 CJK 字型縮至數百 KB。
       - name: 下載並子集化 CJK 字型
-        run: |
-          mkdir -p client/js/assets/fonts
-          dst=client/js/assets/fonts/NotoSansTC-Regular.ttf
-          curl -fL -o "$dst" \
-            https://github.com/notofonts/noto-cjk/raw/main/Sans/OTF/TraditionalChinese/NotoSansCJKtc-Regular.otf
-          python3 -m pip install --user --quiet fonttools \
-            || python3 -m pip install --user --quiet --break-system-packages fonttools
-          python3 -m fontTools.subset "$dst" \
-            --text-file=build/font-chars.txt \
-            --output-file="$dst" \
-            --no-hinting
-          ls -l "$dst"
+        run: bash tools/ci_fonts.sh
 
       - name: 安裝 wasm-opt
         run: |

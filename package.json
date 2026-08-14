@@ -1,0 +1,11 @@
+{
+  "name": "bevy-personal-test-browser-tests",
+  "private": true,
+  "description": "Playwright browser smoke tests for the WASM client (see playwright.config.ts)",
+  "scripts": {
+    "test:browser": "playwright test tests/wasm/"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}
