@@ -20,6 +20,11 @@ keys/
 # 字型資產（由 just download-fonts 下載，不提交至 git；release 使用 pyftsubset 子集版）
 client/js/assets/fonts/
 
+# Node（Playwright 瀏覽器測試）
+node_modules/
+playwright-report/
+test-results/
+
 # OS
 .DS_Store
 Thumbs.db

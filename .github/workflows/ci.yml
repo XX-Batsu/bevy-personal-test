@@ -20,11 +20,10 @@ jobs:
           shared-key: "ci"
           key: ${{ runner.os }}-rust-${{ hashFiles('rust-toolchain.toml') }}
 
-      - name: 安裝 just
-        uses: extractions/setup-just@v2
-
-      - name: 下載字型
-        run: just download-fonts
+      # 不走 justfile：其 shell 為 zsh（ubuntu runner 未安裝，exit 127），
+      # 且 download-fonts 的路徑探測針對 macOS。CI 直接取來源字型並子集化。
+      - name: 下載並子集化 CJK 字型
+        run: bash tools/ci_fonts.sh
 
       - name: 格式檢查
         run: cargo fmt --check
@@ -71,34 +70,48 @@ jobs:
           shared-key: "ci"
           key: ${{ runner.os }}-rust-${{ hashFiles('rust-toolchain.toml') }}
 
-      - name: 安裝 just
-        uses: extractions/setup-just@v2
-
-      - name: 下載字型
-        run: just download-fonts
+      - name: 下載並子集化 CJK 字型
+        run: bash tools/ci_fonts.sh
 
       - name: 安裝 wasm-opt
         run: |
           curl -L https://github.com/WebAssembly/binaryen/releases/download/version_116/binaryen-version_116-x86_64-linux.tar.gz | tar xz
           echo "$PWD/binaryen-version_116/bin" >> $GITHUB_PATH
 
+      # 版本必須與 Cargo.lock 的 wasm-bindgen 一致，否則 wasm-bindgen 會拒絕產出
       - name: 安裝 wasm-bindgen-cli
-        run: cargo install wasm-bindgen-cli --locked
+        run: cargo install wasm-bindgen-cli --version 0.2.117 --locked
 
       - name: WASM Release 建置
-        run: cargo build --target wasm32-unknown-unknown --release
+        run: |
+          cargo build --release --target wasm32-unknown-unknown \
+            --package wasm_loader --features debug-mode
+          cargo build --release --target wasm32-unknown-unknown \
+            --package wasm_shadow_worker --features debug-mode
 
+      # single-player 不在 demo/release 建置路徑上，需獨立檢查否則會靜默腐化
+      - name: single-player feature 編譯檢查
+        run: |
+          cargo check --target wasm32-unknown-unknown \
+            --package wasm_loader --features "debug-mode,single-player"
+
+      # 輸出檔名維持 wasm_loader，wasm-bindgen 才會產出 bootstrap.js 預期的
+      # wasm_loader.js / wasm_loader_bg.wasm
       - name: wasm-opt 優化
-        run: wasm-opt -Oz -o optimized.wasm target/wasm32-unknown-unknown/release/bevy_game.wasm
+        run: |
+          mkdir -p pkg
+          wasm-opt -Oz -o pkg/wasm_loader.wasm \
+            target/wasm32-unknown-unknown/release/wasm_loader.wasm
 
       - name: wasm-bindgen 產出
-        run: wasm-bindgen --out-dir pkg optimized.wasm
+        run: wasm-bindgen --out-dir client/js --target web pkg/wasm_loader.wasm
 
+      # 上傳可直接開啟的完整頁面（HTML/JS/WASM），供 Stage 3b 瀏覽器測試使用
       - name: 上傳 WASM 產物
         uses: actions/upload-artifact@v4
         with:
           name: wasm-build
-          path: pkg/
+          path: client/js/
           retention-days: 1
 
       - name: Slack 失敗通知
@@ -152,18 +165,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: "ci"
-          key: ${{ runner.os }}-rust-${{ hashFiles('rust-toolchain.toml') }}
-
+      # 產物覆蓋 checkout 版本的 client/js（wasm-bindgen 產出 + 編譯後的 .wasm）
       - name: 下載 WASM 產物
         uses: actions/download-artifact@v4
         with:
           name: wasm-build
-          path: pkg/
+          path: client/js/
 
       - name: 快取 Playwright browsers
         uses: actions/cache@v4
@@ -180,7 +187,7 @@ jobs:
         run: npm ci
 
       - name: 安裝 Playwright 瀏覽器
-        run: npx playwright install --with-deps chromium firefox
+        run: npx playwright install --with-deps chromium
 
       - name: 執行 Playwright 測試
         run: npx playwright test tests/wasm/

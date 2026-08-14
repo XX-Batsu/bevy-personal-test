@@ -8,6 +8,12 @@ use simulation::AuthoritativeSimulation;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 
+/// Single-player 的 session id（無 server，故不需唯一性）
+const SINGLE_PLAYER_SESSION_ID: u64 = 0;
+
+/// Single-player 的 RNG seed（固定值，確保每次啟動可重現）
+const SEED: u64 = 0;
+
 /// Single-player 初始化錯誤
 #[derive(Debug, thiserror::Error)]
 #[allow(dead_code)] // wasm_init() 整合時使用
@@ -47,7 +53,9 @@ pub fn init_single_player() -> Result<(), SinglePlayerInitError> {
             rng_state: [0u8; 16],
         };
 
-        let sim = AuthoritativeSimulation::new(initial_state, 0);
+        // session_id 於 single-player 無對外意義，固定為 0；seed 亦固定，
+        // 使同一版本的 client 每次啟動都跑出相同的模擬序列。
+        let sim = AuthoritativeSimulation::new(SINGLE_PLAYER_SESSION_ID, initial_state, SEED);
         let local_player_id = EntityId(1);
 
         *state = Some(SinglePlayerState {
@@ -65,7 +73,7 @@ pub fn init_single_player() -> Result<(), SinglePlayerInitError> {
 /// Lockstep 流程：
 ///   1. 收集本地 input（目前為空 placeholder）
 ///   2. 包裝為 BTreeMap<EntityId, Vec<PlayerInput>>
-///   3. AuthoritativeSimulation::advance(inputs)
+///   3. AuthoritativeSimulation::step_full(inputs)
 ///   4. Client 直接套用 authoritative state（無 prediction、無 rollback）
 pub fn tick(timestamp: f64) {
     SP_STATE.with(|s| {
@@ -91,9 +99,14 @@ pub fn tick(timestamp: f64) {
         let inputs: BTreeMap<EntityId, Vec<PlayerInput>> = BTreeMap::new();
 
         // Lockstep：直接驅動 authoritative simulation
-        sp.sim.advance(&inputs);
-
-        tracing::trace!("Single-player tick {} 完成", sp.sim.current_tick());
+        match sp.sim.step_full(&inputs) {
+            Ok(result) => {
+                tracing::trace!("Single-player tick {} 完成", result.tick);
+            }
+            Err(e) => {
+                tracing::error!("Single-player tick 失敗：{e}");
+            }
+        }
     });
 }
 

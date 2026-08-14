@@ -11,6 +11,8 @@
 #          Rhai bridge 層（bridge_api.rs、dynamic_convert.rs、dynamic_value.rs）
 #          BTreeMap/BTreeSet/IndexMap、allow-hash-collection
 #
+# 行號使用 FNR（單檔行號）；awk 以 `-exec ... {} +` 一次處理多檔時 NR 為跨檔累計值。
+#
 # 已知限制：字串字面值中的 f32/HashMap 會產生 false positive。
 # 精確偵測由 Phase 1 task-11 Clippy lint（MIR 層）負責。
 set -euo pipefail
@@ -47,6 +49,10 @@ FLOAT_ALLOW_FILES=(
     "test_helpers.rs"       # 測試 helper
     "flush.rs"              # BridgeEvent flush（weight: f64 來自 Rhai）
     "conditioner.rs"        # NetworkCondition 測試工具（#[cfg(test)]，非 game logic）
+    "camera_effects.rs"     # 攝影機屬渲染層子系統（見該檔頭註解），CameraBridgeOp 欄位為 f32
+    "bridge_helpers.rs"     # Rhai bridge 參數驗證（f64 為 Rhai 原生型別，同 bridge_api.rs）
+    "sandbox.rs"            # 幀預算與腳本逾時（ms 計時），非 game logic
+    "clock.rs"              # Clock 抽象的 epoch_ms（時間來源，非狀態計算）
 )
 
 EXIT_CODE=0
@@ -83,7 +89,7 @@ for crate_path in "${DETERMINISTIC_CRATES[@]}"; do
             skip && /\{/ { depth++ }
             skip && /\}/ { depth--; if(depth<=0) skip=0; next }
             skip { next }
-            /(^|[^a-zA-Z0-9_])f32([^a-zA-Z0-9_]|$)|(^|[^a-zA-Z0-9_])f64([^a-zA-Z0-9_]|$)/ && !/SoftF32/ && !/softfloat/ && !/allow-native-float/ && !/#\[cfg.*render/ && !/from_f32/ && !/from_f64/ && !/to_f64/ && !/to_native/ { print FILENAME ":" NR ": " $0 }
+            /(^|[^a-zA-Z0-9_])f32([^a-zA-Z0-9_]|$)|(^|[^a-zA-Z0-9_])f64([^a-zA-Z0-9_]|$)/ && !/SoftF32/ && !/softfloat/ && !/allow-native-float/ && !/#\[cfg.*render/ && !/from_f32/ && !/from_f64/ && !/to_f64/ && !/to_native/ { print FILENAME ":" FNR ": " $0 }
         ' {} + 2>/dev/null || true)
 
     if [ -n "$FLOAT_HITS" ]; then
@@ -100,7 +106,7 @@ for crate_path in "${DETERMINISTIC_CRATES[@]}"; do
             skip && /\{/ { depth++ }
             skip && /\}/ { depth--; if(depth<=0) skip=0; next }
             skip { next }
-            /HashMap|HashSet/ && !/BTreeMap/ && !/BTreeSet/ && !/IndexMap/ && !/allow-hash-collection/ { print FILENAME ":" NR ": " $0 }
+            /HashMap|HashSet/ && !/BTreeMap/ && !/BTreeSet/ && !/IndexMap/ && !/allow-hash-collection/ { print FILENAME ":" FNR ": " $0 }
         ' {} + 2>/dev/null || true)
 
     if [ -n "$HASH_HITS" ]; then
