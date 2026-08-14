@@ -127,13 +127,7 @@ impl ShadowExecutor {
             // 將 DeterministicValue::Int 轉為 i64（最常見的 input data 型別）
             let input_data_int: i64 = match &input.data {
                 bridge_types::DeterministicValue::Int(v) => *v,
-                bridge_types::DeterministicValue::Bool(b) => {
-                    if *b {
-                        1
-                    } else {
-                        0
-                    }
-                }
+                bridge_types::DeterministicValue::Bool(true) => 1,
                 _ => 0,
             };
             scope.push("input_data_int", input_data_int);

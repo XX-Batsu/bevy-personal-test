@@ -42,9 +42,20 @@ pub fn get_debug_encryption_key() -> [u8; 32] {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::{Mutex, MutexGuard};
+
+    /// 四個測試共用同一個行程層級環境變數，預設的平行執行會互相覆寫，
+    /// 造成非決定性失敗；以此鎖序列化。
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    /// 取得環境變數鎖；忽略毒化狀態（前一個測試 panic 不應連累其餘測試）。
+    fn env_guard() -> MutexGuard<'static, ()> {
+        ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+    }
 
     #[test]
     fn test_no_env_returns_zero_key() {
+        let _guard = env_guard();
         // 清除環境變數
         std::env::remove_var("BEVY_GAME_DEV_KEY");
         let key = get_debug_encryption_key();
@@ -53,6 +64,7 @@ mod tests {
 
     #[test]
     fn test_valid_hex_key() {
+        let _guard = env_guard();
         let hex_key = "aa".repeat(32); // 64 hex chars = 32 bytes of 0xAA
         std::env::set_var("BEVY_GAME_DEV_KEY", &hex_key);
         let key = get_debug_encryption_key();
@@ -62,6 +74,7 @@ mod tests {
 
     #[test]
     fn test_wrong_length_falls_back() {
+        let _guard = env_guard();
         std::env::set_var("BEVY_GAME_DEV_KEY", "aabb"); // 太短
         let key = get_debug_encryption_key();
         assert_eq!(key, [0u8; 32]);
@@ -70,6 +83,7 @@ mod tests {
 
     #[test]
     fn test_invalid_hex_falls_back() {
+        let _guard = env_guard();
         let bad_hex = "gg".repeat(32); // 非法 hex
         std::env::set_var("BEVY_GAME_DEV_KEY", &bad_hex);
         let key = get_debug_encryption_key();
