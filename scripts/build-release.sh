@@ -267,6 +267,7 @@ cp client/js/loader.js          "${DIST_DIR}/js/"
 cp client/js/wasm_loader.js     "${DIST_DIR}/js/"
 cp client/js/transport.js       "${DIST_DIR}/js/"
 cp client/js/bootstrap.js       "${DIST_DIR}/js/"
+cp client/js/config.js          "${DIST_DIR}/js/"
 cp client/js/shadow_worker.js   "${DIST_DIR}/js/" 2>/dev/null || true  # 選用
 
 # HTML + CSS

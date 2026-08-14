@@ -1,0 +1,118 @@
+name: Release Binaries
+
+# 於 v* tag 建置 native demo 執行檔（bevy_runtime 的 native_dev example）並發佈至
+# GitHub Releases。內容＝桌面視窗的歡迎畫面，不含 server 連線與遊戲玩法。
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: 建置 ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            bin: native_dev
+            archive: tar.gz
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bin: native_dev.exe
+            archive: zip
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            bin: native_dev
+            archive: tar.gz
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "release-${{ matrix.target }}"
+
+      # Bevy 在 Linux 需要 ALSA 與 udev 開發標頭
+      - name: 安裝 Linux 系統相依
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libudev-dev
+
+      # bevy_runtime/build.rs 要求字型存在才可編譯（WASM 以 include_bytes! 內嵌）；
+      # native 於執行期由 AssetServer 載入，故同時打包進封存檔。
+      - name: 下載並子集化 CJK 字型
+        shell: bash
+        run: |
+          mkdir -p client/js/assets/fonts
+          dst=client/js/assets/fonts/NotoSansTC-Regular.ttf
+          curl -fL -o "$dst" \
+            https://github.com/notofonts/noto-cjk/raw/main/Sans/OTF/TraditionalChinese/NotoSansCJKtc-Regular.otf
+          python3 -m pip install --user --quiet fonttools \
+            || python3 -m pip install --user --quiet --break-system-packages fonttools
+          python3 -m fontTools.subset "$dst" \
+            --text-file=build/font-chars.txt \
+            --output-file="$dst" \
+            --flavor=truetype \
+            --no-hinting
+
+      - name: 建置 native demo
+        run: cargo build --release --target ${{ matrix.target }} --package bevy_runtime --example native_dev
+
+      - name: 組裝封存內容
+        shell: bash
+        run: |
+          out="dist/bevy-demo-${{ matrix.target }}"
+          mkdir -p "$out/assets/fonts"
+          cp "target/${{ matrix.target }}/release/examples/${{ matrix.bin }}" "$out/"
+          cp client/js/assets/fonts/NotoSansTC-Regular.ttf "$out/assets/fonts/"
+          cp LICENSE README.md "$out/"
+
+      - name: 打包（tar.gz）
+        if: matrix.archive == 'tar.gz'
+        shell: bash
+        run: tar -czf "bevy-demo-${{ matrix.target }}.tar.gz" -C dist "bevy-demo-${{ matrix.target }}"
+
+      - name: 打包（zip）
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: Compress-Archive -Path "dist/bevy-demo-${{ matrix.target }}" -DestinationPath "bevy-demo-${{ matrix.target }}.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bevy-demo-${{ matrix.target }}
+          path: bevy-demo-${{ matrix.target }}.*
+          retention-days: 7
+
+  publish:
+    name: 發佈 Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
+          body: |
+            Native demo build — 開啟後顯示 Bevy 歡迎畫面（`BEVY GAME` / 按任意鍵開始）。
+            尚無遊戲玩法與 server 連線；框架能力請見 `demo` CLI 與 README。
+
+            解壓後直接執行 `native_dev`（Windows 為 `native_dev.exe`）；
+            `assets/fonts/` 需與執行檔保持同一層，否則中文字不會顯示。

@@ -1,0 +1,17 @@
+[package]
+name = "demo_cli"
+version.workspace = true
+edition.workspace = true
+description = "Demo CLI — 終端機驗證確定性、狀態雜湊鏈與腳本沙箱三項核心保證"
+
+[[bin]]
+name = "demo"
+path = "src/main.rs"
+
+[dependencies]
+clap = { workspace = true }
+hex = { workspace = true }
+bridge_types = { path = "../../engine/bridge_types" }
+deterministic = { path = "../../engine/deterministic" }
+state_hash = { path = "../../engine/state_hash" }
+vm_runtime = { path = "../../engine/vm_runtime" }

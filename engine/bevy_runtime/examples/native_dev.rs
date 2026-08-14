@@ -17,6 +17,21 @@ use std::sync::Arc;
 /// 但 POSIX 下 join(absolute) 直接取代前綴，故使用絕對路徑可跨工作目錄。
 const CLIENT_ASSETS_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../client/js/assets");
 
+/// 素材根目錄解析：
+/// - Release 包（執行檔旁有 `assets/fonts/`）：回傳相對路徑 `assets`，
+///   由 Bevy 以執行檔目錄為 asset root 解析，因此可在任何機器上執行。
+/// - 開發樹：回傳編譯期絕對路徑 [`CLIENT_ASSETS_DIR`]。
+fn assets_dir() -> String {
+    let exe_assets = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|dir| dir.join("assets")));
+
+    match exe_assets {
+        Some(path) if path.join("fonts").is_dir() => "assets".to_string(),
+        _ => CLIENT_ASSETS_DIR.to_string(),
+    }
+}
+
 fn main() {
     // 載入 manifest（若不存在則使用空 manifest）
     let manifest = match std::fs::read_to_string("assets/manifest.ron") {
@@ -47,9 +62,9 @@ fn main() {
         .add_plugins(
             DefaultPlugins
                 .set(AssetPlugin {
-                    // 使用絕對路徑指向 client/js/assets/，
-                    // 使 AssetServer 能載入 fonts/NotoSansTC-Regular.ttf。
-                    file_path: CLIENT_ASSETS_DIR.to_string(),
+                    // 指向含 fonts/NotoSansTC-Regular.ttf 的素材根目錄，
+                    // 開發樹用編譯期絕對路徑，release 包用執行檔旁的 assets/。
+                    file_path: assets_dir(),
                     ..default()
                 })
                 .set(WindowPlugin {

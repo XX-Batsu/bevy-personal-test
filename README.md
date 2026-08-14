@@ -10,6 +10,70 @@ scripting engine. Game logic runs inside a fully deterministic, sandboxed
 script VM, enabling server-authoritative validation, rollback netcode, and
 anti-cheat verification via a shadow VM.
 
+## Demo
+
+Three ways to run this without a checkout-and-configure session. None of them is
+a playable game: the simulation exposes game-logic insertion points rather than
+gameplay, so what runs is the framework, not a title built on it.
+
+### Browser — client boot pipeline
+
+**[Live demo](https://xx-batsu.github.io/bevy-personal-test/)** — a static WASM
+build on GitHub Pages. It executes the real client startup path (WASM
+instantiate → Bevy engine init → first frame) and renders the welcome screen.
+No gateway server sits behind it, so the client starts in offline mode: no
+WebSocket, no ECDH handshake, no netcode session. Locally, append `?offline` to
+any dev URL for the same behaviour.
+
+### Terminal — determinism, state hashing, sandbox
+
+The `demo` CLI exercises the guarantees the framework is built around. No
+assets, no server, no browser:
+
+```bash
+cargo run -p demo_cli --release                     # all four sections
+cargo run -p demo_cli --release -- --only sandbox   # one section
+cargo run -p demo_cli --release -- --ticks 32       # longer hash chain
+```
+
+```
+== 1. SoftF32 — software float, bit-reproducible across targets ==
+  expr         SoftF32        native f32     bits equal
+  0.1 + 0.2    0x3E99999A     0x3E99999A     yes
+  sqrt(2.0)    0x3FB504F3     0x3FB504F3     yes
+  sin(1.0)     0x3F576AA4     0x3F576AA4     yes
+
+== 2. DeterministicRng — PCG-XSH-RR, seeded and restorable ==
+  seed 42, draws 1-4     : [1307692281, 3850602322, 1491967504, 4091771729]
+  captured state (16B)   : d0332fa6deee39dd0300000000000000
+  draws 5-8 from rng     : [3882238836, 1795024040, 2266118430, 1938801432]
+  draws 5-8 from state   : [3882238836, 1795024040, 2266118430, 1938801432]  (identical: true)
+
+== 3. State hash chain — blake3 over (tick, rng state, entities) ==
+  tick   1  blake3:fb8129b25c8424be…  seed42-rerun: match  seed43: diverged
+  tick   2  blake3:ad8290c72f625e5a…  seed42-rerun: match  seed43: diverged
+  seed 42 replay is bit-identical: true
+  seed 43 diverges from tick 1
+
+== 4. Rhai sandbox — symbol blocking and resource limits ==
+  plain arithmetic   -> allowed, result = 45
+  eval()             -> rejected (CompileError)
+  module import      -> rejected (CompileError)
+  unbounded loop     -> rejected (Timeout)
+  limits: 50,000 ops, 32 call levels, 4 KiB strings, 2 ms per script.
+```
+
+Section 3 supplies its own minimal game logic (SoftF32 motion plus RNG jitter),
+because `AuthoritativeSimulation::step_full` deliberately leaves that as an
+insertion point.
+
+### Desktop — native window
+
+Prebuilt binaries for Linux, macOS (Apple silicon) and Windows are attached to
+each [release](https://github.com/XX-Batsu/bevy-personal-test/releases). Unpack
+and run `native_dev`; keep `assets/fonts/` beside the executable or the CJK line
+will not render. From a checkout, `just dev-native` does the same.
+
 ## Quick Start
 
 ```bash
@@ -111,8 +175,8 @@ Web Worker), `js/` (bootstrap loader).
 
 `bytecode_compiler` (`.rhai` → encrypted `.rhai.bc`), `asset_encryptor`,
 `cfg_mutator` (wasm-mutate seeds), `manifest-gen`, `dev-asset-server`,
-`replay_debugger`, `state_inspector`, `vm_disassembler`, plus determinism
-static-analysis and golden-hash scripts.
+`demo_cli` (the terminal demo above), `replay_debugger`, `state_inspector`,
+`vm_disassembler`, plus determinism static-analysis and golden-hash scripts.
 
 ## Determinism Rules
 

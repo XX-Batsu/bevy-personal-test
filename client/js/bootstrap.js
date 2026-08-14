@@ -1,6 +1,7 @@
 // client/js/bootstrap.js — 應用啟動協調
 
 import * as transport from './transport.js';
+import { OFFLINE_DEMO } from './config.js';
 import init, {
   wasm_init,
   wasm_encode_client_hello,
@@ -15,8 +16,37 @@ let shadowWorker = null;
 let handshakeTimeoutId = null;
 
 /**
+ * 是否為離線 demo 模式（config.js 旗標或網址 `?offline`）。
+ * @returns {boolean}
+ */
+function isOfflineDemo() {
+  return OFFLINE_DEMO || new URLSearchParams(window.location.search).has('offline');
+}
+
+/**
+ * 離線 demo：無 gateway server，跳過 WebSocket 與 ECDH 握手直接啟動 Bevy App。
+ * ECDH 金鑰仍在本地產生（已於 start() 完成），只是不送出 ClientHello。
+ * Shadow VM Worker 需要 session 才有作用，離線模式不啟動。
+ */
+function startOfflineDemo() {
+  console.info('[bootstrap] 離線 demo 模式：跳過 WebSocket 連線與 ECDH 握手');
+
+  const badge = document.getElementById('demo-badge');
+  if (badge) {
+    badge.textContent = 'Offline demo — no server, no netcode session';
+    badge.hidden = false;
+  }
+
+  updateProgress(45, '離線 Demo 模式（無 server）');
+  updateProgress(60, '引擎初始化');
+  startGameLoop();
+}
+
+/**
  * 啟動應用：WASM init -> WebSocket open -> ECDH 握手 -> 等待 WASM callback
  * game loop 由 WASM 握手成功後透過 js_start_game_loop() callback 觸發。
+ *
+ * 離線 demo 模式下於步驟 2 之後分岔，不進行任何網路連線。
  * @returns {Promise<void>}
  */
 export async function start() {
@@ -26,6 +56,12 @@ export async function start() {
   // 2. Rust 初始化：panic hook → tracing → ECDH keygen
   //    回傳 client X25519 公鑰（32 bytes）
   const publicKeyBytes = wasm_init();
+
+  // 2.5 離線 demo 分岔（靜態託管，無 server）
+  if (isOfflineDemo()) {
+    startOfflineDemo();
+    return;
+  }
 
   // 3. WebSocket open
   await transport.connect();
