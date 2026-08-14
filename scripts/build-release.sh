@@ -79,10 +79,11 @@ if ! command -v pyftsubset &>/dev/null; then
 fi
 
 FONT_BEFORE=$(wc -c < "$FONT_SRC")
+# 不指定 --flavor：來源為 CFF/OTF 輪廓，pyftsubset 僅接受 woff/woff2，
+# 傳入 truetype 會以 "Unknown flavor" 中止。輸出維持原輪廓格式（ttf-parser 可解析）。
 pyftsubset "$FONT_SRC" \
   --text-file="$FONT_CHARS" \
   --output-file="$FONT_SRC" \
-  --flavor=truetype \
   --no-hinting
 FONT_AFTER=$(wc -c < "$FONT_SRC")
 echo "字型子集化：${FONT_BEFORE} bytes → ${FONT_AFTER} bytes"

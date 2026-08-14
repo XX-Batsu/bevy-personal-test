@@ -64,7 +64,6 @@ jobs:
           python3 -m fontTools.subset "$dst" \
             --text-file=build/font-chars.txt \
             --output-file="$dst" \
-            --flavor=truetype \
             --no-hinting
 
       - name: 建置 native demo
