@@ -1,0 +1,113 @@
+name: Pages Demo
+
+# 靜態 WASM demo：無 gateway server，client 以離線模式啟動（見 client/js/config.js）。
+# 展示範圍＝載入管線 + Bevy 歡迎畫面；不含 netcode、握手與素材解密。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'client/**'
+      - 'engine/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同時只允許一次部署，且不中斷進行中的部署
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: 建置 WASM demo
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "pages"
+          key: ${{ runner.os }}-rust-${{ hashFiles('rust-toolchain.toml') }}
+
+      # 字型透過 include_bytes! 在編譯期嵌入 WASM，必須先就位。
+      # 子集化（build/font-chars.txt）將 ~16 MB 完整 CJK 字型縮至數百 KB。
+      - name: 下載並子集化 CJK 字型
+        run: |
+          mkdir -p client/js/assets/fonts
+          dst=client/js/assets/fonts/NotoSansTC-Regular.ttf
+          curl -fL -o "$dst" \
+            https://github.com/notofonts/noto-cjk/raw/main/Sans/OTF/TraditionalChinese/NotoSansCJKtc-Regular.otf
+          python3 -m pip install --user --quiet fonttools \
+            || python3 -m pip install --user --quiet --break-system-packages fonttools
+          python3 -m fontTools.subset "$dst" \
+            --text-file=build/font-chars.txt \
+            --output-file="$dst" \
+            --flavor=truetype \
+            --no-hinting
+          ls -l "$dst"
+
+      - name: 安裝 wasm-opt
+        run: |
+          curl -L https://github.com/WebAssembly/binaryen/releases/download/version_116/binaryen-version_116-x86_64-linux.tar.gz | tar xz
+          echo "$PWD/binaryen-version_116/bin" >> $GITHUB_PATH
+
+      # 版本必須與 Cargo.lock 的 wasm-bindgen 一致，否則 wasm-bindgen 會拒絕產出
+      - name: 安裝 wasm-bindgen-cli
+        run: cargo install wasm-bindgen-cli --version 0.2.117 --locked
+
+      - name: 建置 wasm_loader（release + debug-mode）
+        run: |
+          cargo build --release --target wasm32-unknown-unknown \
+            --package wasm_loader --features debug-mode
+
+      # 輸出檔名維持 wasm_loader，wasm-bindgen 才會產出 bootstrap.js 預期的
+      # wasm_loader.js / wasm_loader_bg.wasm
+      - name: wasm-opt -Oz
+        run: |
+          mkdir -p pkg
+          wasm-opt -Oz -o pkg/wasm_loader.wasm \
+            target/wasm32-unknown-unknown/release/wasm_loader.wasm
+
+      - name: wasm-bindgen（--target web）
+        run: wasm-bindgen --out-dir client/js --target web pkg/wasm_loader.wasm
+
+      - name: 啟用離線 demo 模式
+        run: |
+          cat > client/js/config.js <<'EOF'
+          // 由 .github/workflows/pages.yml 產生 — GitHub Pages 無 gateway server，
+          // 因此以離線模式啟動：跳過 WebSocket 連線與 ECDH 握手。
+          export const OFFLINE_DEMO = true;
+          EOF
+
+      # Jekyll 會忽略底線開頭檔案，且此處不需任何 Jekyll 處理
+      - name: 停用 Jekyll
+        run: touch client/js/.nojekyll
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: client/js
+
+  deploy:
+    name: 部署至 GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -49,11 +49,42 @@ body {
   font-size: 1.2rem;
 }
 
+/* 進度條：由 bootstrap.js updateProgress() 更新寬度 */
+#progress-track {
+  margin-top: 12px;
+  width: min(320px, 60%);
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.15);
+  overflow: hidden;
+}
+
+#progress-bar {
+  width: 0;
+  height: 100%;
+  background: #a0a8c0;
+  transition: width 0.2s ease-out;
+}
+
 #error-text {
   margin-top: 16px;
   font-size: 1rem;
   max-width: 80%;
   text-align: center;
+}
+
+/* 離線 demo 標記：右上角，避免訪客誤以為連線功能已就緒 */
+#demo-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #c8cde0;
+  font-family: sans-serif;
+  font-size: 0.75rem;
+  pointer-events: none;
 }
 
 /* Canvas：絕對定位，填滿容器（Bevy fit_canvas_to_parent 讀取父元素尺寸） */

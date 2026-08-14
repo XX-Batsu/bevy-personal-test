@@ -6,6 +6,10 @@ port := "7777"
 default:
     @just --list
 
+# 終端機 demo：確定性、狀態雜湊鏈、腳本沙箱（不需 server / 素材）
+demo *ARGS:
+    cargo run -p demo_cli --release -- {{ARGS}}
+
 # 完整重建並重啟 server（含 dev-asset-server）
 dev: build bindgen build-shadow bindgen-shadow build-server serve start-dev-assets
 

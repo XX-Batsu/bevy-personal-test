@@ -12,9 +12,12 @@
     <div id="loading-screen">
       <div class="spinner"></div>
       <p id="loading-text">載入中...</p>
+      <div id="progress-track"><div id="progress-bar"></div></div>
       <p id="error-text" style="display:none; color:red;"></p>
     </div>
     <canvas id="game-canvas" style="display:none;"></canvas>
+    <!-- 離線 demo 標記：僅在 bootstrap 判定為離線模式時顯示 -->
+    <div id="demo-badge" hidden></div>
   </div>
   <script type="module" src="loader.js"></script>
 </body>
