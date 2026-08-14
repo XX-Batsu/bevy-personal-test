@@ -70,11 +70,13 @@ fn scan_directory(
             continue;
         }
 
+        // 一律以 '/' 分隔：asset id 與 path 會進入 manifest 並跨平台比對，
+        // 若沿用 OS 分隔符，Windows 產生的 manifest 會與其他平台不一致。
         let rel_path = path
             .strip_prefix(assets_dir)
             .unwrap()
             .to_string_lossy()
-            .to_string();
+            .replace('\\', "/");
 
         let ext = path
             .extension()

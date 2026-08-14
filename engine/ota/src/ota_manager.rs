@@ -56,7 +56,7 @@ impl OtaManager {
     pub fn next_batch(&mut self) -> Vec<OtaItem> {
         let mut batch = Vec::new();
 
-        for (_priority, items) in self.download_queue.iter_mut() {
+        for items in self.download_queue.values_mut() {
             let mut i = 0;
             while i < items.len() {
                 let size = match &items[i] {
