@@ -9,7 +9,8 @@ jobs:
   quick-check:
     name: "Stage 1: Quick Checks"
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # 冷快取需完整編譯 Bevy 依賴樹，5 分鐘不足
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -19,6 +20,12 @@ jobs:
         with:
           shared-key: "ci"
           key: ${{ runner.os }}-rust-${{ hashFiles('rust-toolchain.toml') }}
+
+      # bevy_audio → alsa-sys、bevy_winit → libudev 需要系統開發標頭
+      - name: 安裝 Linux 系統相依
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libudev-dev
 
       # 不走 justfile：其 shell 為 zsh（ubuntu runner 未安裝，exit 127），
       # 且 download-fonts 的路徑探測針對 macOS。CI 直接取來源字型並子集化。
@@ -57,7 +64,8 @@ jobs:
     name: "Stage 2: WASM Build"
     needs: quick-check
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # 冷快取需編譯整棵 Bevy wasm 依賴樹，另加 wasm-bindgen-cli 安裝
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -129,7 +137,7 @@ jobs:
     name: "Stage 3a: Integration Tests (Native)"
     needs: quick-check
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -139,6 +147,16 @@ jobs:
         with:
           shared-key: "ci"
           key: ${{ runner.os }}-rust-${{ hashFiles('rust-toolchain.toml') }}
+
+      # bevy_audio → alsa-sys、bevy_winit → libudev 需要系統開發標頭
+      - name: 安裝 Linux 系統相依
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libudev-dev
+
+      # bevy_runtime/build.rs 要求字型存在才能編譯
+      - name: 下載並子集化 CJK 字型
+        run: bash tools/ci_fonts.sh
 
       - name: 整合測試（Native）
         run: cargo test --workspace --features integration
