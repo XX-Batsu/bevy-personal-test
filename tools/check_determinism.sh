@@ -51,6 +51,7 @@ FLOAT_ALLOW_FILES=(
     "conditioner.rs"        # NetworkCondition 測試工具（#[cfg(test)]，非 game logic）
     "camera_effects.rs"     # 攝影機屬渲染層子系統（見該檔頭註解），CameraBridgeOp 欄位為 f32
     "bridge_helpers.rs"     # Rhai bridge 參數驗證（f64 為 Rhai 原生型別，同 bridge_api.rs）
+    "camera_module.rs"      # Rhai 攝影機模組（f64 為 Rhai 原生型別，轉換後交渲染層）
     "sandbox.rs"            # 幀預算與腳本逾時（ms 計時），非 game logic
     "clock.rs"              # Clock 抽象的 epoch_ms（時間來源，非狀態計算）
 )
@@ -78,6 +79,9 @@ for crate_path in "${DETERMINISTIC_CRATES[@]}"; do
     FLOAT_HITS=$(find "$crate_path/src/" -name '*.rs' -exec \
         awk -v exclude="$FLOAT_EXCLUDE_PATTERN" '
             BEGIN { split(exclude, arr, "|"); for (i in arr) excl[arr[i]] = 1 }
+            # 換檔即重置 skip 狀態：awk 一次處理多檔，未重置會讓前一檔未閉合的
+            # test 區塊把後續整個檔案吃掉（掃描順序因平台而異，會造成漏檢）
+            FNR == 1 { skip = 0; depth = 0 }
             {
                 # 提取檔案名稱
                 n = split(FILENAME, parts, "/")
@@ -101,6 +105,7 @@ for crate_path in "${DETERMINISTIC_CRATES[@]}"; do
     # === 檢查 2：HashMap/HashSet（非確定性集合）===
     HASH_HITS=$(find "$crate_path/src/" -name '*.rs' -exec \
         awk '
+            FNR == 1 { skip = 0; depth = 0 }
             /^[[:space:]]*\/\// { next }
             /^#\[cfg\(test\)\]/ || /mod tests \{/ { skip=1; depth=0 }
             skip && /\{/ { depth++ }
