@@ -81,10 +81,12 @@ jobs:
       - name: 下載並子集化 CJK 字型
         run: bash tools/ci_fonts.sh
 
+      # binaryen 116 不認得 Rust 現行 wasm32 預設輸出的 nontrapping-float-to-int
+      # 等指令，會以 "all used features should be allowed" 驗證失敗
       - name: 安裝 wasm-opt
         run: |
-          curl -L https://github.com/WebAssembly/binaryen/releases/download/version_116/binaryen-version_116-x86_64-linux.tar.gz | tar xz
-          echo "$PWD/binaryen-version_116/bin" >> $GITHUB_PATH
+          curl -L https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-x86_64-linux.tar.gz | tar xz
+          echo "$PWD/binaryen-version_132/bin" >> $GITHUB_PATH
 
       # 版本必須與 Cargo.lock 的 wasm-bindgen 一致，否則 wasm-bindgen 會拒絕產出
       - name: 安裝 wasm-bindgen-cli
@@ -105,10 +107,12 @@ jobs:
 
       # 輸出檔名維持 wasm_loader，wasm-bindgen 才會產出 bootstrap.js 預期的
       # wasm_loader.js / wasm_loader_bg.wasm
+      # -all：允許 Rust 產出的所有 wasm proposal 指令（bulk memory、sign-ext、
+      # nontrapping float→int 等），否則 wasm-opt 會在驗證階段拒絕輸入
       - name: wasm-opt 優化
         run: |
           mkdir -p pkg
-          wasm-opt -Oz -o pkg/wasm_loader.wasm \
+          wasm-opt -Oz -all -o pkg/wasm_loader.wasm \
             target/wasm32-unknown-unknown/release/wasm_loader.wasm
 
       - name: wasm-bindgen 產出
