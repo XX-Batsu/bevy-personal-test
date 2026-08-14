@@ -107,16 +107,15 @@ jobs:
 
       # 輸出檔名維持 wasm_loader，wasm-bindgen 才會產出 bootstrap.js 預期的
       # wasm_loader.js / wasm_loader_bg.wasm
-      # -all：允許 Rust 產出的所有 wasm proposal 指令（bulk memory、sign-ext、
-      # nontrapping float→int 等），否則 wasm-opt 會在驗證階段拒絕輸入
-      - name: wasm-opt 優化
+      - name: wasm-bindgen 產出
         run: |
-          mkdir -p pkg
-          wasm-opt -Oz -all -o pkg/wasm_loader.wasm \
+          wasm-bindgen --out-dir client/js --target web \
             target/wasm32-unknown-unknown/release/wasm_loader.wasm
 
-      - name: wasm-bindgen 產出
-        run: wasm-bindgen --out-dir client/js --target web pkg/wasm_loader.wasm
+      # 必須在 wasm-bindgen 之後：先 wasm-opt 會破壞 wasm-bindgen 依賴的
+      # function table（failed to find `0` in function table）
+      - name: wasm-opt 優化
+        run: bash tools/ci_wasm_opt.sh client/js/wasm_loader_bg.wasm
 
       # 上傳可直接開啟的完整頁面（HTML/JS/WASM），供 Stage 3b 瀏覽器測試使用
       - name: 上傳 WASM 產物
