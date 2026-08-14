@@ -130,6 +130,8 @@ bevy = { version = "0.15", default-features = false, features = [
     "default_font",         # 內嵌 FiraMono 字型（TextFont::default() 所需）
     # ── 視窗與輸入 ──
     "bevy_winit",           # WASM canvas 事件迴圈（含 ButtonInput<KeyCode>）
+    "x11",                  # Linux 視窗後端；winit 在 Linux 需 x11 或 wayland，
+                            # 否則 compile_error!（Windows/macOS/WASM 為 no-op）
     "webgl2",               # WASM WebGL2 渲染後端
     # ── 遊戲邏輯 ──
     "bevy_state",           # States trait、AppState 狀態機、OnEnter/OnExit
