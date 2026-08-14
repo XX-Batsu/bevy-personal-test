@@ -124,9 +124,31 @@ export function startGameLoop() {
   const loading = document.getElementById('loading-screen');
   const canvas = document.getElementById('game-canvas');
   if (loading) loading.style.display = 'none';
-  if (canvas) canvas.style.display = 'block';
+
+  // winit 建立 window 時把 canvas 設回 display:none（視窗建立時預設不可見，
+  // 由 winit 於首幀後才顯示；WASM 路徑下不會被翻回來，畫面因此永遠是黑的）。
+  // 改寫發生在 wasm_start_game() 的同步執行期間，故 observer 必須先掛上。
+  if (canvas) {
+    canvas.style.display = 'block';
+    keepCanvasVisible(canvas);
+  }
 
   wasm_start_game();
+}
+
+/**
+ * 於 durationMs 內持續確保 canvas 維持 display:block。
+ * 回呼中的寫入會再次觸發 observer，但條件判斷使其於第二次即停止，不會遞迴。
+ * @param {HTMLElement} canvas
+ * @param {number} durationMs
+ */
+function keepCanvasVisible(canvas, durationMs = 3000) {
+  if (typeof MutationObserver === 'undefined') return;
+  const observer = new MutationObserver(() => {
+    if (canvas.style.display !== 'block') canvas.style.display = 'block';
+  });
+  observer.observe(canvas, { attributes: true, attributeFilter: ['style'] });
+  setTimeout(() => observer.disconnect(), durationMs);
 }
 
 /**
