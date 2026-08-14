@@ -62,17 +62,17 @@ jobs:
           cargo build --release --target wasm32-unknown-unknown \
             --package wasm_loader --features debug-mode
 
-      # 輸出檔名維持 wasm_loader，wasm-bindgen 才會產出 bootstrap.js 預期的
+      # 輸入檔名維持 wasm_loader，wasm-bindgen 才會產出 bootstrap.js 預期的
       # wasm_loader.js / wasm_loader_bg.wasm
-      # -all：允許 Rust 產出的所有 wasm proposal 指令，否則驗證階段會拒絕輸入
-      - name: wasm-opt -Oz
+      - name: wasm-bindgen（--target web）
         run: |
-          mkdir -p pkg
-          wasm-opt -Oz -all -o pkg/wasm_loader.wasm \
+          wasm-bindgen --out-dir client/js --target web \
             target/wasm32-unknown-unknown/release/wasm_loader.wasm
 
-      - name: wasm-bindgen（--target web）
-        run: wasm-bindgen --out-dir client/js --target web pkg/wasm_loader.wasm
+      # 必須在 wasm-bindgen 之後：先 wasm-opt 會破壞 wasm-bindgen 依賴的
+      # function table（failed to find `0` in function table）
+      - name: wasm-opt -Oz
+        run: bash tools/ci_wasm_opt.sh client/js/wasm_loader_bg.wasm
 
       - name: 啟用離線 demo 模式
         run: |
